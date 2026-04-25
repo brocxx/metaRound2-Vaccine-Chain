@@ -6,7 +6,7 @@ colorTo: indigo
 sdk: docker
 app_port: 7860
 pinned: false
-short_description: OpenEnv vaccine cold chain with district briefings + Mission Control UI
+short_description: Vaccine cold chain OpenEnv + Mission Control UI
 ---
 
 # Vaccine Cold Chain — OpenEnv Environment (Round 2)
