@@ -52,7 +52,8 @@ app.add_middleware(
 
 _env = VaccineColdChainEnv()
 _WEB_HTML_PATH = Path(__file__).parent / "web.html"
-_DEBUG_LOG_PATH = Path(r"c:\Users\A\OneDrive\Desktop\META\debug-096157.log")
+# Repo-root log file (works on Windows, Linux/HF, and teammates' machines).
+_DEBUG_LOG_PATH = Path(__file__).resolve().parent.parent / "debug-096157.log"
 
 
 def _debug_log(hypothesis_id: str, message: str, data: dict) -> None:
