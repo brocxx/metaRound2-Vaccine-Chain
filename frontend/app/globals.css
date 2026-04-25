@@ -1,0 +1,234 @@
+@import "tailwindcss";
+
+/* ─── Design tokens ─────────────────────────────────────────────────────── */
+:root {
+  /* Surfaces */
+  --bg-base: #05070a;        /* page */
+  --bg-panel: #0b0f14;       /* card */
+  --bg-elev: #11171f;        /* elevated card */
+  --line: #1a232e;           /* hairlines */
+  --line-strong: #2a3645;
+
+  /* Ink */
+  --ink-primary: #f3f6fa;
+  --ink-secondary: #a3b0c0;
+  --ink-muted: #5b6878;
+  --ink-faint: #2f3a48;
+
+  /* Cold-chain semantic */
+  --cold-cyan: #6cd9ff;      /* nominal cold (2–8 °C) */
+  --cold-deep: #2a86b8;
+  --warn-amber: #ffb547;     /* warning */
+  --danger-red: #ff4d6d;     /* spoil / failure */
+  --good-green: #5fe0a0;     /* delivered / success */
+  --signal-violet: #b58cff;  /* AI / agent moves */
+
+  /* Glow halos used for alerts */
+  --glow-cyan: 0 0 24px rgba(108, 217, 255, 0.35);
+  --glow-amber: 0 0 24px rgba(255, 181, 71, 0.35);
+  --glow-red: 0 0 28px rgba(255, 77, 109, 0.45);
+}
+
+@theme inline {
+  --color-bg-base: var(--bg-base);
+  --color-bg-panel: var(--bg-panel);
+  --color-bg-elev: var(--bg-elev);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-ink-primary: var(--ink-primary);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+
+  --color-cold-cyan: var(--cold-cyan);
+  --color-cold-deep: var(--cold-deep);
+  --color-warn-amber: var(--warn-amber);
+  --color-danger-red: var(--danger-red);
+  --color-good-green: var(--good-green);
+  --color-signal-violet: var(--signal-violet);
+
+  --font-sans: var(--font-display);
+  --font-mono: var(--font-mono);
+}
+
+/* ─── Base ──────────────────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: var(--bg-base);
+  color: var(--ink-primary);
+  font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-image:
+    radial-gradient(ellipse at 50% -20%, rgba(108, 217, 255, 0.05), transparent 60%),
+    radial-gradient(ellipse at 100% 100%, rgba(181, 140, 255, 0.04), transparent 50%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: var(--cold-cyan);
+  color: var(--bg-base);
+}
+
+/* Subtle film-grain overlay across the whole app */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='1'/></svg>");
+}
+
+/* ─── Reusable primitives ───────────────────────────────────────────────── */
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.panel-elev {
+  background: var(--bg-elev);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+}
+
+.hairline {
+  border-color: var(--line);
+}
+
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--ink-secondary);
+  background: var(--bg-elev);
+}
+
+.label-mono {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* Animated alarm pulse */
+@keyframes alarm-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 77, 109, 0.55); }
+  50% { box-shadow: 0 0 0 14px rgba(255, 77, 109, 0); }
+}
+.alarm-pulse {
+  animation: alarm-pulse 1.6s ease-out infinite;
+}
+
+@keyframes hum {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.hum {
+  animation: hum 2.4s ease-in-out infinite;
+}
+
+/* Marquee for kinetic strap */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.marquee {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee 36s linear infinite;
+}
+
+/* ─── Dashboard infinite animations (CSS, not framer-motion) ────────────── */
+/* Reason: framer-motion infinite loops with array-literal keyframes restart
+   on every React re-render (because the array gets a new reference). CSS
+   keyframes are owned by the browser and never restart on React updates,
+   which fixes the per-poll dashboard flicker. */
+
+/* Outreach pulse around node ring */
+@keyframes node-outreach-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50%      { transform: scale(1.18); opacity: 0; }
+}
+.node-outreach-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: node-outreach-pulse 1.8s ease-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Temperature alarm pulse on outer ring */
+@keyframes node-alarm-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50%      { transform: scale(1.18); opacity: 0; }
+}
+.node-alarm-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: node-alarm-pulse 1.4s ease-out infinite;
+  will-change: transform, opacity;
+}
+
+/* Sensor-lie dashed amber halo: rotating dash + breathing opacity */
+@keyframes sensor-lie-rotate {
+  from { stroke-dashoffset: 0; opacity: 0.55; }
+  50%  { opacity: 0.95; }
+  to   { stroke-dashoffset: -28; opacity: 0.55; }
+}
+.sensor-lie-arc {
+  animation: sensor-lie-rotate 2s linear infinite;
+  will-change: stroke-dashoffset, opacity;
+}
+
+/* Sensor-lie waveform breathing */
+@keyframes sensor-lie-wave {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.9; }
+}
+.sensor-lie-wave {
+  animation: sensor-lie-wave 1.4s ease-in-out infinite;
+}
+
+/* Closed road marching dash */
+@keyframes road-march {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -28; }
+}
+.road-closed-march {
+  animation: road-march 1.4s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+/* Briefing scanline sweeps left → right */
+@keyframes briefing-scanline {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(100%); }
+}
+.briefing-scanline {
+  animation: briefing-scanline 6s linear infinite;
+  will-change: transform;
+}
+
+/* Typewriter cursor blink (replaces framer-motion infinite opacity array) */
+@keyframes cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.cursor-blink {
+  animation: cursor-blink 1s steps(1, end) infinite;
+}
