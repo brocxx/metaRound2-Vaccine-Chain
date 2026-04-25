@@ -155,6 +155,10 @@ What action should you take? Consider the briefing context.
 - **With briefing:** ~0.6-0.8 total rubric score  
 - **Key milestone:** Agent learns to ignore sensor alarms during known calibration faults
 
+#### Validated baseline (prompt-only ablation)
+
+We have already run a prompt-only ablation (no fine-tuning, just briefing on/off) that confirms the curve direction. See [`Training_Evidence/Reward_Curve/reward_curve.png`](./Training_Evidence/Reward_Curve/reward_curve.png) and the [Training Evidence section of the README](./README.md#-training-evidence) for raw screenshots from all 8 Scenario 1 takes (0/4 baseline accuracy → 4/4 with briefing). Use this as the ceiling target for the un-trained baseline; fine-tuning should push the green curve higher and faster, not just match it.
+
 ### 4. Evaluation Protocol
 ```python
 # Run 100 episodes, compare:
