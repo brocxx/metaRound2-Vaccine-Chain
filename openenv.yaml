@@ -1,0 +1,62 @@
+name: vaccine-cold-chain
+version: "2.0"
+description: "OpenEnv-compliant RL environment for vaccine cold chain management in rural India with language briefings and sensor reliability"
+entry_point: "server.environment:VaccineColdChainEnv"
+
+observation_space:
+  type: "dict"
+  fields:
+    - name: "sensor_reading"
+      type: "float"
+      description: "Temperature sensor reading in Celsius (may be lying)"
+    - name: "actual_temperature"
+      type: "float"
+      description: "True temperature at the node"
+    - name: "sensor_lying"
+      type: "boolean"
+      description: "Whether the sensor is currently reporting false values"
+    - name: "generator_fuel_pct"
+      type: "float"
+      description: "Generator fuel percentage (0-100)"
+    - name: "temperature_alarm"
+      type: "boolean"
+      description: "Whether temperature is out of safe range"
+    - name: "vials_at_node"
+      type: "integer"
+      description: "Number of vaccine vials at this node"
+    - name: "time_remaining_hours"
+      type: "float"
+      description: "Hours remaining in the episode (max 72)"
+
+action_space:
+  type: "dict"
+  fields:
+    - name: "node"
+      type: "string"
+      description: "Target node: DVS_Barmer, CHC_Balotra, or PHC_Sindhari"
+    - name: "action_type"
+      type: "string"
+      enum: ["check_temperature", "request_fuel", "schedule_outreach", "check_truck_status", "request_emergency"]
+      description: "Action to perform"
+    - name: "quantity"
+      type: "integer"
+      description: "Optional quantity for outreach scheduling (vials to deliver)"
+
+reward_range: [-10, 10]
+
+tags:
+  - "language"
+  - "rl"
+  - "vaccine"
+  - "cold-chain"
+  - "healthcare"
+  - "india"
+  - "long-horizon"
+  - "ethical-tension"
+
+difficulty_levels:
+  - "easy"
+  - "medium"
+  - "hard"
+
+max_episode_length: 72
