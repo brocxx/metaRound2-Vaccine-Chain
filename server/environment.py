@@ -16,8 +16,10 @@ KEY MECHANICS:
 - Briefing required on /reset; combines with sensor data for LLM decisions.
 """
 
+import json
 import os
 import random
+from pathlib import Path
 from typing import Optional, Dict, Any, List, Tuple
 
 from models import (
@@ -32,6 +34,22 @@ from models import (
 )
 from server.briefings import generate_briefing
 from server.rubrics import VaccineRubric
+
+
+# Static OSM-derived geo data (nodes + routes). Loaded once at import time.
+# The loader is intentionally no-throw: a missing or malformed file results
+# in `{}` so the env behaves exactly as it did pre-OSM.
+_GEO_PATH = Path(__file__).resolve().parent.parent / "geo_config.json"
+
+
+def _load_geo() -> Dict[str, Any]:
+    """Read geo_config.json from the repo root, returning {} on any error."""
+    try:
+        if _GEO_PATH.is_file():
+            return json.loads(_GEO_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return {}
 
 
 try:
@@ -163,6 +181,9 @@ class VaccineColdChainEnv(_OpenEnvBase):
         self.difficulty = "medium"
         self.district = "barmer"
         self._rubric = VaccineRubric()
+        # Static geo data exposed via /state. Empty dict if geo_config.json is
+        # missing or malformed — callers must tolerate that.
+        self.geo: Dict[str, Any] = _load_geo()
         self._reset_state()
 
     def _reset_state(self):
@@ -781,6 +802,8 @@ class VaccineColdChainEnv(_OpenEnvBase):
             total_vials_delivered=self.total_vials_delivered,
             total_population_target=self.total_population_target,
             population_reached=self.population_reached,
+            nodes_geo=self.geo.get("nodes", {}) or {},
+            routes=self.geo.get("routes", {}) or {},
         )
 
     def _log_event(self, message: str):

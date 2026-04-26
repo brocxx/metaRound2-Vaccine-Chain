@@ -164,6 +164,12 @@ class State:
     total_vials_delivered: int = 0
     total_population_target: int = 0
     population_reached: int = 0
+    # Static OSM-derived geo data — additive, optional. Empty dicts when
+    # geo_config.json is missing/invalid so legacy callers see no change.
+    # `nodes_geo`: { node_name: { lat, lon, type } }
+    # `routes`:    { route_key: { distance_km, eta_min, road_type } }
+    nodes_geo: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    routes: Dict[str, Dict[str, Any]] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -186,6 +192,8 @@ class State:
             "total_vials_delivered": self.total_vials_delivered,
             "total_population_target": self.total_population_target,
             "population_reached": self.population_reached,
+            "nodes_geo": self.nodes_geo,
+            "routes": self.routes,
         }
 
 

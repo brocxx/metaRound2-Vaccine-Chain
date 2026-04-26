@@ -73,6 +73,17 @@ export interface BackendState {
   total_vials_delivered: number;
   total_population_target: number;
   population_reached: number;
+  /**
+   * Static OSM-derived geo data, sourced from `geo_config.json` at the repo
+   * root and exposed via `/state`. Both fields are optional: when the file is
+   * missing or malformed, the backend returns `{}` (or omits the keys on
+   * older deploys). Front-end consumers must treat these as `?? {}`.
+   */
+  nodes_geo?: Record<string, { lat: number; lon: number; type: string }>;
+  routes?: Record<
+    string,
+    { distance_km: number; eta_min: number; road_type: string }
+  >;
 }
 
 export interface BackendStepResult {

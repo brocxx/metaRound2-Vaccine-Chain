@@ -207,6 +207,13 @@ Two distinct shapes are returned: the agent gets a slim, leakage-free observatio
 
 `actual_temperature` and `sensor_lying` are **never** exposed to the agent — they live on `State` only. Agents must reason about a possibly-lying sensor from the briefing paragraph, which is the central scientific question the environment is built to ask.
 
+### Map data (static OSM)
+
+- **Map data:** static OSM-derived (`geo_config.json`) for deployment stability — no network calls from the running environment.
+- The backend exposes two additive fields on `/state`: `nodes_geo` (lat/lon/type per node) and `routes` (`distance_km`, `eta_min`, `road_type` per route). The Mission Control UI surfaces these as a small overlay on the triangle map. Agent observations (`/reset`, `/step`) are unchanged.
+- If `geo_config.json` is missing or invalid, the env runs unchanged with `nodes_geo`/`routes` as `{}`.
+- Last known-good pre-OSM commit on `hf-clean`: `7f2212b6` (rollback target).
+
 ---
 
 ## 🎯 Reward Rubric

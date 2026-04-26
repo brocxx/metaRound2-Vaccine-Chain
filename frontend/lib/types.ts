@@ -144,6 +144,31 @@ export interface RewardBreakdown {
 
 export type BriefingSource = "auto" | "user";
 
+/**
+ * Per-node static geo data (OSM-derived). Optional — surfaced from
+ * `geo_config.json` via `/state.nodes_geo`. Empty object when the file is
+ * missing or malformed.
+ */
+export interface NodeGeo {
+  lat: number;
+  lon: number;
+  type: string;
+}
+
+/**
+ * Per-route static geo data (OSM-derived). Optional — surfaced from
+ * `geo_config.json` via `/state.routes`. Empty object when the file is
+ * missing or malformed.
+ *
+ * Note: this is intentionally a SEPARATE slot from `roads` (which carries
+ * the dynamic open/closed status used by TriangleMap). Don't merge them.
+ */
+export interface RouteGeo {
+  distance_km: number;
+  eta_min: number;
+  road_type: string;
+}
+
 export interface VaccineStateV2 {
   hour: number;
   max_hours: number;
@@ -153,6 +178,10 @@ export interface VaccineStateV2 {
   done: boolean;
   nodes: Record<NodeKey, NodeStateV2>;
   roads: Partial<Record<RoadKey, RoadStatus>>;
+  /** Static OSM geo overlay — keyed by RoadKey, all entries optional. */
+  routes?: Partial<Record<RoadKey, RouteGeo>>;
+  /** Static OSM node coordinates — keyed by NodeKey. */
+  nodes_geo?: Partial<Record<NodeKey, NodeGeo>>;
   outreach_schedule: OutreachScheduleEntry[];
   last_action: string | null;
   last_reasoning: string | null;

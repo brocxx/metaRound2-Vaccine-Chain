@@ -34,6 +34,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY models.py openenv.yaml ./
+COPY geo_config.json ./
 COPY server/ ./server/
 COPY client.py validate_submission.py ./
 COPY README.md ./

@@ -1,0 +1,12 @@
+{
+  "nodes": {
+    "DVS_Barmer":   { "lat": 25.7521, "lon": 71.3961, "type": "DVS" },
+    "CHC_Balotra":  { "lat": 25.8336, "lon": 72.2369, "type": "CHC" },
+    "PHC_Sindhari": { "lat": 25.5212, "lon": 71.9134, "type": "PHC" }
+  },
+  "routes": {
+    "DVS_Barmer_to_CHC_Balotra":   { "distance_km": 95, "eta_min": 120, "road_type": "state_highway" },
+    "CHC_Balotra_to_PHC_Sindhari": { "distance_km": 70, "eta_min": 90,  "road_type": "district_road" },
+    "DVS_Barmer_to_PHC_Sindhari":  { "distance_km": 82, "eta_min": 105, "road_type": "state_highway" }
+  }
+}

@@ -44,6 +44,8 @@ import {
   tempColor,
 } from "@/lib/types";
 
+import { RoutesPanel } from "./RoutesPanel";
+
 // ─── Layout constants ─────────────────────────────────────────────────────
 
 const VIEW_W = 1000;
@@ -719,6 +721,10 @@ function TriangleMapInner({ state }: TriangleMapProps) {
         <Legend color="var(--warn-amber)" label="Sensor lie" dashed />
         <Legend color="var(--signal-violet)" label="Outreach" />
       </div>
+
+      {/* Static OSM geo overlay — renders nothing when state.routes is empty,
+          so the legacy demo (without geo_config.json) is unchanged. */}
+      <RoutesPanel routes={state.routes} />
     </div>
   );
 }
@@ -733,6 +739,14 @@ function mapsAreEqual(a: TriangleMapProps, b: TriangleMapProps) {
   if (a.state.ethical_tension_active !== b.state.ethical_tension_active) return false;
   if (a.state.events.length !== b.state.events.length) return false;
   if (a.state.outreach_schedule.length !== b.state.outreach_schedule.length) return false;
+  // Routes are static-but-late: undefined on first /reset, populated on the
+  // first /state poll. Detect that one-time transition so RoutesPanel is
+  // visible without waiting for autopilot to advance the hour.
+  if (
+    Object.keys(a.state.routes ?? {}).length !==
+    Object.keys(b.state.routes ?? {}).length
+  )
+    return false;
   for (const k of NODE_KEYS) {
     const na = a.state.nodes[k];
     const nb = b.state.nodes[k];

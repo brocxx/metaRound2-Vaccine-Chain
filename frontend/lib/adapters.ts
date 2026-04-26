@@ -179,6 +179,8 @@ export function adaptBackendState(
     done: !!b.done,
     nodes: adaptNodes(b.nodes ?? []),
     roads: {},
+    routes: (b.routes ?? {}) as VaccineStateV2["routes"],
+    nodes_geo: (b.nodes_geo ?? {}) as VaccineStateV2["nodes_geo"],
     outreach_schedule: [],
     last_action: formatAction(b.last_action),
     last_reasoning: b.last_reasoning ?? null,
