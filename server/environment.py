@@ -22,6 +22,7 @@ from typing import Optional, Dict, Any, List, Tuple
 
 from models import (
     Action,
+    AgentNodeObservation,
     Observation,
     NodeObservation,
     State,
@@ -60,6 +61,46 @@ SENSOR_LIE_LIFT_MIN = 1.5
 SENSOR_LIE_LIFT_MAX = 3.0
 SENSOR_READING_CAP = 12.0
 EPISODE_MAX_HOURS = 72
+
+# Scenario presets used by run_eval.py (and any external evaluator) to get
+# reproducible, signal-bearing episodes. Each preset overrides the briefing
+# (unless the caller supplied user_briefing) and forces specific initial
+# conditions so the briefed-vs-unbriefed gap is measurable.
+SCENARIO_BRIEFINGS = {
+    1: (
+        "Sensor false alarm — DVS_Barmer's temperature sensor was flagged for "
+        "a calibration fault last quarter and has not been serviced. Current "
+        "readings may sit 2–4°C ABOVE the true cold-chain temperature, so a "
+        "reading near 9°C usually corresponds to a real value of ~5°C. "
+        "Generator fuel is at 100% and was just topped up; vials at DVS_Barmer "
+        "are physically safe. Truck arrives at hour 12. Coverage target: 200."
+    ),
+    2: (
+        "Closing road window — Heavy monsoon flooding has compromised the "
+        "Barmer–Sindhari link. The bridge will close at hour 8 and stay shut "
+        "for the remainder of the day. Any vials needed at PHC_Sindhari MUST "
+        "be scheduled for delivery before the window closes. Truck arrival "
+        "uncertain. Coverage target: 200 beneficiaries (split across nodes)."
+    ),
+    3: (
+        "Triage call — Two competing outreach sessions today, but cold-chain "
+        "and crew capacity to fully run only ONE. PHC_Sindhari outreach "
+        "coordinator confirmed by phone that only 12 of the 100 registered "
+        "children are available today due to a school exam — effective "
+        "coverage at PHC_Sindhari will be 12%. CHC_Balotra's 90 elderly are "
+        "all confirmed present and waiting. Choose the session that will "
+        "actually translate vials into people reached."
+    ),
+}
+
+# Per-node demographic for the scenario-3 triage. PHC_Sindhari is the
+# pediatric session; CHC_Balotra is the elderly session. Only used when a
+# scenario is set so default behaviour is unchanged.
+SCENARIO_NODE_DEMOGRAPHIC = {
+    "PHC_Sindhari": "children",
+    "CHC_Balotra": "elderly",
+    "DVS_Barmer": "mixed",
+}
 
 
 HAZARD_PROBABILITIES = {
@@ -169,6 +210,16 @@ class VaccineColdChainEnv(_OpenEnvBase):
         self.total_actions = 0
         self.node_hours_in_safe_range = 0
         self.total_node_hours = 0
+        # Scenario-mode state. None = default (free-running) episode.
+        self.scenario_id: Optional[int] = None
+        # Per-node cap on how many vaccinations a single outreach session can
+        # actually translate to "people reached" — used by scenario 3 to model
+        # the 12% turnout fact in the briefing. Vials are still consumed; only
+        # `population_reached` is capped.
+        self._session_capacity_override: Dict[str, int] = {}
+        # Hour at which a scenario-2-style road closure makes outreach to a
+        # specific node fail. None = no closure.
+        self._scenario2_deadline_hour: Optional[int] = None
 
     def reset(
         self,
@@ -176,6 +227,7 @@ class VaccineColdChainEnv(_OpenEnvBase):
         district: str = "barmer",
         user_briefing: Optional[str] = None,
         seed: Optional[int] = None,
+        scenario: Optional[int] = None,
     ) -> Observation:
         """Reset the environment for a new episode.
 
@@ -184,6 +236,12 @@ class VaccineColdChainEnv(_OpenEnvBase):
             district: "nashik", "barmer", or "godda" (drives briefing content)
             user_briefing: Optional pre-supplied briefing text
             seed: Optional RNG seed for reproducibility
+            scenario: Optional preset (1, 2, or 3). When set, forces
+                deterministic initial conditions and overrides the briefing
+                with the scenario-specific text (unless `user_briefing` is
+                also provided). Used by run_eval.py to produce signal-bearing
+                evaluation episodes; default `None` keeps the standard
+                free-running behaviour.
 
         Returns:
             Initial Observation with briefing populated.
@@ -216,10 +274,91 @@ class VaccineColdChainEnv(_OpenEnvBase):
             self.ethical_tension_active = False
             self.total_population_target = 200
 
+        if scenario is not None:
+            self._apply_scenario(int(scenario), user_briefing)
+
         self._initialized = True
         self._log_event(f"Episode started. Difficulty={self.difficulty}, district={self.district}.")
         self._compute_simple_metrics()
         return self._build_observation()
+
+    def _apply_scenario(self, scenario_id: int, user_briefing: Optional[str]) -> None:
+        """Configure the env for a specific evaluation scenario (1, 2, or 3).
+
+        Each preset:
+          1. (Optionally) overrides the briefing with the scenario-specific
+             text, unless the caller already supplied `user_briefing`.
+          2. Forces specific initial conditions so the briefed-vs-unbriefed
+             gap is deterministic and measurable.
+
+        Scenario 1 — Sensor false alarm:
+            Forces `sensor_lying=True` at DVS_Barmer with a 3°C lift, so the
+            initial observation shows a temperature_alarm even though the
+            generator and vials are physically fine. A briefed agent should
+            recognise the calibration-fault narrative and decline to panic.
+        Scenario 2 — Closing road window:
+            Pushes truck arrival to hour 30 and arms a hard road-closure at
+            hour 8 for PHC_Sindhari. Outreach scheduled to PHC_Sindhari
+            after that hour delivers ZERO effective vaccinations. A briefed
+            agent should schedule outreach at hour 0; an unbriefed agent
+            sees no sensor signal and waits, missing the window.
+        Scenario 3 — Triage call:
+            Forces ethical tension and caps the EFFECTIVE population reach
+            of each outreach session: PHC_Sindhari = 12 (school-exam day),
+            CHC_Balotra = 90 (full attendance). Vials are still consumed
+            normally, so the agent who follows the naive
+            "pediatric-first-dose > elderly-booster" prior reaches only 12
+            people; the briefed agent reaches 90 by choosing CHC_Balotra.
+        """
+        if scenario_id not in SCENARIO_BRIEFINGS:
+            raise ValueError(
+                f"Unknown scenario {scenario_id}; expected one of "
+                f"{sorted(SCENARIO_BRIEFINGS.keys())}"
+            )
+
+        self.scenario_id = scenario_id
+        if not user_briefing:
+            self.briefing = SCENARIO_BRIEFINGS[scenario_id]
+
+        if scenario_id == 1:
+            n = self.nodes_state["DVS_Barmer"]
+            n["sensor_lying"] = True
+            # Lift 4°C on a 5°C baseline → reading 9°C, comfortably past the
+            # 8°C alarm threshold so the unbriefed rule-based agent reliably
+            # sees `temperature_alarm=True` on its first observation.
+            n["sensor_lie_offset"] = 4.0
+            self._log_event(
+                "SCENARIO 1: DVS_Barmer sensor lying (recalibration fault). "
+                "Reading lifted by 4.0°C; alarm WILL fire on first observation."
+            )
+        elif scenario_id == 2:
+            self.truck_arrival_hour = 30
+            self._scenario2_deadline_hour = 8
+            self._log_event(
+                "SCENARIO 2: PHC_Sindhari road closes at hour 8. "
+                "Truck delayed to hour 30."
+            )
+        elif scenario_id == 3:
+            # Pin populations so the briefing's "100 registered children"
+            # and "90 elderly" facts match the env's actual cohort sizes.
+            # Otherwise the effective-coverage cap (90) would clip against
+            # the smaller default elderly_population (70) and the rubric
+            # signal would understate the gap between the briefed and
+            # naive choices.
+            self.children_population = 100
+            self.elderly_population = 90
+            self.ethical_tension_active = True
+            self.total_population_target = (
+                self.children_population + self.elderly_population
+            )
+            self._session_capacity_override = {
+                "PHC_Sindhari": 12,   # 12% turnout (school exam)
+                "CHC_Balotra": 90,    # 100% turnout (all confirmed)
+            }
+            self._log_event(
+                "SCENARIO 3: PHC_Sindhari turnout=12/100 (school exam), "
+                "CHC_Balotra turnout=90/90 (all confirmed). Triage required."
+            )
 
     def step(self, action: Action) -> StepResult:
         """Execute one action and advance the simulation.
@@ -345,10 +484,28 @@ class VaccineColdChainEnv(_OpenEnvBase):
             available = n["vials_at_node"]
             delivered = min(requested, available)
 
+            # Scenario-2 hard road closure: outreach to PHC_Sindhari after the
+            # bridge closes delivers ZERO effective vaccinations.
+            if (
+                self.scenario_id == 2
+                and node == "PHC_Sindhari"
+                and self._scenario2_deadline_hour is not None
+                and self.current_hour >= self._scenario2_deadline_hour
+            ):
+                self.missed_sessions += 1
+                self._log_event(
+                    f"OUTREACH at {node} BLOCKED: bridge closed at hour "
+                    f"{self._scenario2_deadline_hour} (now hour {self.current_hour})."
+                )
+                return 4.0, -0.5, {
+                    "action_type": atype, "node": node,
+                    "delivered": 0, "effective": 0, "blocked": True,
+                }
+
             if delivered <= 0:
                 self.missed_sessions += 1
                 self._log_event(f"MISSED SESSION at {node}: no vials available.")
-                return 4.0, -0.3, {"action_type": atype, "node": node, "delivered": 0}
+                return 4.0, -0.3, {"action_type": atype, "node": node, "delivered": 0, "effective": 0}
 
             spoiled = 0
             if n["actual_temperature"] < SAFE_TEMP_MIN or n["actual_temperature"] > SAFE_TEMP_MAX:
@@ -365,20 +522,54 @@ class VaccineColdChainEnv(_OpenEnvBase):
             n["vials_at_node"] -= (delivered + spoiled)
             self.total_vials_delivered += delivered
 
+            # Scenario-3 effective-coverage cap: vials are physically delivered,
+            # but the number of people actually vaccinated is capped by today's
+            # session attendance (e.g., 12% turnout at PHC_Sindhari).
+            session_cap = self._session_capacity_override.get(node)
+            if session_cap is not None:
+                effective = min(delivered, session_cap)
+                self._session_capacity_override[node] = max(0, session_cap - effective)
+                if effective < delivered:
+                    self._log_event(
+                        f"OUTREACH at {node}: only {effective}/{delivered} vials "
+                        f"translated to vaccinations (session capacity cap)."
+                    )
+            else:
+                effective = delivered
+
             if self.ethical_tension_active:
-                children_share = min(delivered, max(0, self.children_population - self.children_vaccinated))
-                self.children_vaccinated += children_share
-                remaining = delivered - children_share
-                if remaining > 0:
-                    elderly_share = min(remaining, max(0, self.elderly_population - self.elderly_vaccinated))
-                    self.elderly_vaccinated += elderly_share
+                # Demographic-aware routing only when running a scenario;
+                # default free-running episodes keep the original
+                # children-first behaviour for backward compatibility with
+                # smoke_test_1c.py and existing rubric calibration.
+                if self.scenario_id is not None:
+                    demo = SCENARIO_NODE_DEMOGRAPHIC.get(node, "mixed")
+                else:
+                    demo = "mixed"
+
+                if demo == "children":
+                    delta = min(effective, max(0, self.children_population - self.children_vaccinated))
+                    self.children_vaccinated += delta
+                elif demo == "elderly":
+                    delta = min(effective, max(0, self.elderly_population - self.elderly_vaccinated))
+                    self.elderly_vaccinated += delta
+                else:
+                    children_share = min(effective, max(0, self.children_population - self.children_vaccinated))
+                    self.children_vaccinated += children_share
+                    remaining = effective - children_share
+                    if remaining > 0:
+                        elderly_share = min(remaining, max(0, self.elderly_population - self.elderly_vaccinated))
+                        self.elderly_vaccinated += elderly_share
                 self.population_reached = self.children_vaccinated + self.elderly_vaccinated
             else:
                 self.population_reached = min(
-                    self.total_population_target, self.population_reached + delivered
+                    self.total_population_target, self.population_reached + effective
                 )
 
-            return 4.0, 0.5 + 0.001 * delivered, {"action_type": atype, "node": node, "delivered": delivered}
+            return 4.0, 0.5 + 0.001 * effective, {
+                "action_type": atype, "node": node,
+                "delivered": delivered, "effective": effective,
+            }
 
         if atype == "request_emergency":
             lie_active = any(s["sensor_lying"] for s in self.nodes_state.values())
@@ -503,8 +694,13 @@ class VaccineColdChainEnv(_OpenEnvBase):
         self.waste = total_spoiled / max(1, self.total_vials_at_start)
         self.rubric_scores = self._rubric.evaluate(self)
 
-    def _build_observation(self) -> Observation:
-        node_obs = []
+    def _build_full_node_observations(self) -> List[NodeObservation]:
+        """Privileged ground-truth per-node list, used by /state and the UI.
+
+        Includes `sensor_lying` and `actual_temperature`. Never expose this
+        directly to the agent — see `_build_agent_node_observations`.
+        """
+        node_obs: List[NodeObservation] = []
         for node_name, n in self.nodes_state.items():
             node_obs.append(
                 NodeObservation(
@@ -518,9 +714,38 @@ class VaccineColdChainEnv(_OpenEnvBase):
                     vials_spoiled=n["vials_spoiled"],
                 )
             )
+        return node_obs
+
+    def _build_agent_node_observations(self) -> List[AgentNodeObservation]:
+        """Agent-facing per-node list (no leakage).
+
+        Drops `sensor_lying` and `actual_temperature`. The agent must
+        reason about the possibility of a lying sensor using the
+        natural-language briefing instead of peeking at the truth.
+        """
+        node_obs: List[AgentNodeObservation] = []
+        for node_name, n in self.nodes_state.items():
+            node_obs.append(
+                AgentNodeObservation(
+                    node_name=node_name,
+                    sensor_reading=self._compute_sensor_reading(n),
+                    generator_fuel_pct=round(n["generator_fuel_pct"], 1),
+                    temperature_alarm=self._is_alarm(n),
+                    vials_at_node=n["vials_at_node"],
+                    vials_spoiled=n["vials_spoiled"],
+                )
+            )
+        return node_obs
+
+    def _build_observation(self) -> Observation:
+        """Build the agent-facing Observation returned by reset/step.
+
+        Uses `AgentNodeObservation` (no leakage). The /state endpoint and
+        UI use `state()` below, which returns the full `NodeObservation`.
+        """
         time_remaining = max(0.0, EPISODE_MAX_HOURS - self.current_hour)
         return Observation(
-            nodes=node_obs,
+            nodes=self._build_agent_node_observations(),
             time_remaining_hours=time_remaining,
             current_hour=self.current_hour,
             briefing=self.briefing,
@@ -530,10 +755,14 @@ class VaccineColdChainEnv(_OpenEnvBase):
         )
 
     def state(self) -> State:
-        """Full ground-truth state for the /state endpoint and UI."""
-        node_obs = self._build_observation().nodes
+        """Full ground-truth state for the /state endpoint and UI.
+
+        Returns full `NodeObservation` objects with `sensor_lying` and
+        `actual_temperature` exposed — these drive the dashboard's
+        sensor-lie callout and the truth-vs-sensor delta.
+        """
         return State(
-            nodes=node_obs,
+            nodes=self._build_full_node_observations(),
             time_remaining_hours=max(0.0, EPISODE_MAX_HOURS - self.current_hour),
             current_hour=self.current_hour,
             briefing=self.briefing,

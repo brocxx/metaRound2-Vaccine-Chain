@@ -13,9 +13,16 @@ short_description: Vaccine cold chain OpenEnv + Mission Control UI
 
 > **OpenEnv Hackathon India 2026** • **Theme #2: Long-Horizon Planning & Instruction Following**
 
-An OpenEnv-compliant RL environment where an LLM agent manages a 3-node vaccine cold chain in rural India using **natural-language district briefings** combined with live sensor data.
+Every year, last-mile vaccine cold chains in rural India lose millions of doses to preventable failures — sensor faults, generator outages, roads that close after two days of rain. The people managing these chains receive sensor numbers. They also receive a paragraph from the district health officer. Current RL environments give agents only the numbers.
 
-**🎯 [Live Demo](https://huggingface.co/spaces/brocxx/vaccine-cold-chain-v2)** • **🎥 [Video Tutorial (coming soon)]()**
+**This environment gives agents both. The gap in performance is the finding.**
+
+🎯 **[Live Demo](https://huggingface.co/spaces/brocxx/vaccine-cold-chain-v2)** • 
+📊 **[Reward Curve](Training_Evidence/Reward_Curve/reward_curve.png)** • 
+📓 **[Training Notebook](training/train_grpo.py)** •
+🎥 **[Video Walkthrough — coming soon]**
+
+---
 
 ## The Core Innovation
 
@@ -222,6 +229,10 @@ We ran an ablation: **same model, same seed, same observation — only the `brie
 ### Reward curve — briefing introduced at episode 20
 
 ![Agent Performance: Without vs With District Briefing](<Training_Evidence/Reward_Curve/reward_curve.png>)
+
+> *Both curves use the same model, seed, and structured observation. Only the `briefing`
+> field differs. Briefing introduced at episode 20. Full training log:
+> [`training/run_log.csv`](training/run_log.csv)*
 
 | Phase | Episodes | Mean Episode Reward | Trend |
 |---|---|---|---|

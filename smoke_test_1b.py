@@ -29,6 +29,8 @@ def test_phase_1b():
     print(f"    OK Nodes: {sorted(node_names)}")
 
     print("\n[2] STEP 10 times in hard mode and observe hazards...")
+    print("    NOTE: agent obs no longer carries sensor_lying/actual_temperature")
+    print("    (leakage fix). We read those via env.state() — same path the UI uses.")
     sensor_lie_observed = False
     flood_observed = False
     generator_failure_observed = False
@@ -40,16 +42,29 @@ def test_phase_1b():
             reasoning=f"Step {i}: monitoring temperature.",
         )
         result = env.step(action)
+
+        # Sanity: agent observation MUST NOT carry the privileged fields.
         for node in result.observation.nodes:
+            assert not hasattr(node, "sensor_lying"), \
+                "LEAKAGE: AgentNodeObservation has sensor_lying"
+            assert not hasattr(node, "actual_temperature"), \
+                "LEAKAGE: AgentNodeObservation has actual_temperature"
+
+        # Privileged truth (for the test assertions): pull from /state.
+        truth_state = env.state()
+        for node in truth_state.nodes:
             if node.sensor_lying:
                 sensor_lie_observed = True
                 lift = node.sensor_reading - node.actual_temperature
-                assert 1.4 <= lift <= 3.1, \
-                    f"Lying sensor lift out of range: {lift:.2f}"
+                sensor_capped = node.sensor_reading >= 12.0
+                if not sensor_capped:
+                    assert 1.4 <= lift <= 3.1, \
+                        f"Lying sensor lift out of range: {lift:.2f} " \
+                        f"(actual={node.actual_temperature:.2f}, sensor={node.sensor_reading:.2f})"
                 print(f"    [step {i}] LIE on {node.node_name}: "
-                      f"sensor={node.sensor_reading:.1f}°C, "
-                      f"actual={node.actual_temperature:.1f}°C "
-                      f"(lift={lift:.1f}°C)")
+                      f"sensor={node.sensor_reading:.1f}C, "
+                      f"actual={node.actual_temperature:.1f}C "
+                      f"(lift={lift:+.1f}C{' [CAPPED]' if sensor_capped else ''})")
         for ev in result.observation.last_event.split("\n") if result.observation.last_event else []:
             if "FLOOD" in ev:
                 flood_observed = True
@@ -58,6 +73,7 @@ def test_phase_1b():
 
     print(f"\n    OK Reward sum across 10 steps: ~{sum([0.05]*10):.2f} expected from check_temperature")
     print(f"    OK Sensor lie observed: {sensor_lie_observed}")
+    print("    OK Agent obs verified slim (no sensor_lying / actual_temperature)")
 
     print("\n[3] state() returns full ground truth shape...")
     state = env.state()

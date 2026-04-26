@@ -109,7 +109,15 @@ async def health():
 async def reset(req: ResetRequest):
     """Start a new episode.
 
-    Accepts optional `user_briefing` ? if provided, used directly instead of
+    Returns the agent-facing `Observation` (slim per-node shape):
+      - `nodes[].sensor_reading`, `generator_fuel_pct`, `temperature_alarm`,
+        `vials_at_node`, `vials_spoiled` — exposed.
+      - `nodes[].sensor_lying` and `nodes[].actual_temperature` — NOT
+        exposed here. They are privileged ground truth and live only on
+        `/state`. This prevents trivial leakage that would make the
+        "briefing vs no-briefing" ablation scientifically invalid.
+
+    Accepts optional `user_briefing` — if provided, used directly instead of
     OpenAI generation or the hardcoded fallback. This lets the calling agent
     inject its own district briefing for controlled experiments.
     """
@@ -128,6 +136,11 @@ async def reset(req: ResetRequest):
 @app.post("/step")
 async def step(req: StepRequest):
     """Execute one action.
+
+    Returns `StepResult.observation` as the agent-facing `Observation`
+    (slim per-node shape — no `sensor_lying`, no `actual_temperature`).
+    Same rationale as /reset: the agent must use the briefing to reason
+    about a possibly-lying sensor, not a privileged boolean field.
 
     The `reasoning` field is stored and surfaced in /state for the UI.
     It is also used by the ProactiveRubric to assess the agent's intent.
@@ -151,11 +164,17 @@ async def step(req: StepRequest):
 
 @app.get("/state")
 async def state():
-    """Full ground-truth state ? the UI polling endpoint.
+    """Full ground-truth state — the UI polling endpoint (privileged).
 
-    Returns both the simple `coverage/waste/missed_sessions` formula (per Bible)
-    and the composable `rubric_scores` breakdown. Sensor lie is always exposed
-    as `sensor_lying` on each node so the UI can render the amber callout.
+    Returns both the simple `coverage/waste/missed_sessions` formula (per
+    Bible) and the composable `rubric_scores` breakdown. Each entry in
+    `state.nodes` is a FULL `NodeObservation` with `sensor_lying` and
+    `actual_temperature` exposed so the Mission Control dashboard can
+    render the amber sensor-lie callout and the truth-vs-sensor delta.
+
+    These fields are intentionally NOT present on /reset or /step — those
+    return the slim `Observation` (`AgentNodeObservation` per node) so that
+    no agent (rule-based, LLM, or otherwise) can peek at the truth.
     """
     try:
         return _env.state().to_dict()

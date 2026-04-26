@@ -55,12 +55,50 @@ class Action:
 
 @dataclass
 class NodeObservation:
-    """Per-node observation. Field names match the Bible spec exactly."""
+    """Per-node observation with FULL ground truth.
+
+    Used by the `/state` endpoint and the live Mission Control UI. Includes
+    `sensor_lying` and `actual_temperature` so the dashboard can render the
+    calibration-fault callout and the truth-vs-sensor delta.
+
+    Agents are given `AgentNodeObservation` instead — they MUST NOT see
+    these privileged fields, otherwise the "briefing vs no-briefing"
+    ablation collapses into `if sensor_lying: ignore_alarm` and the
+    natural-language briefing stops doing the work.
+
+    Field names match the Bible spec exactly. Do not rename.
+    """
 
     node_name: str
     sensor_reading: float
-    actual_temperature: float
-    sensor_lying: bool
+    actual_temperature: float       # PRIVILEGED — UI / /state only
+    sensor_lying: bool              # PRIVILEGED — UI / /state only
+    generator_fuel_pct: float
+    temperature_alarm: bool
+    vials_at_node: int
+    vials_spoiled: int = 0
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class AgentNodeObservation:
+    """Per-node observation EXPOSED TO THE AGENT (no leakage).
+
+    Identical to `NodeObservation` MINUS the two privileged ground-truth
+    fields (`sensor_lying`, `actual_temperature`). The agent must reason
+    about a possibly-lying sensor using the briefing — peeking at the
+    truth would invalidate the central scientific question of the env
+    ("does the natural-language briefing carry decision-relevant info?").
+
+    Field names match the Bible/UI contract for the fields that ARE
+    exposed (`sensor_reading`, `generator_fuel_pct`, `temperature_alarm`,
+    `vials_at_node`, `vials_spoiled`); never rename them.
+    """
+
+    node_name: str
+    sensor_reading: float
     generator_fuel_pct: float
     temperature_alarm: bool
     vials_at_node: int
@@ -72,9 +110,14 @@ class NodeObservation:
 
 @dataclass
 class Observation:
-    """Full observation returned to the agent at each step."""
+    """Observation returned to the AGENT at each step (/reset and /step).
 
-    nodes: List[NodeObservation]
+    Uses `AgentNodeObservation` — no `sensor_lying`, no `actual_temperature`.
+    The full ground-truth shape lives on `State` (served by /state for the
+    Mission Control UI). These are intentionally different objects.
+    """
+
+    nodes: List[AgentNodeObservation]
     time_remaining_hours: float
     current_hour: int
     briefing: str

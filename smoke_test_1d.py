@@ -70,16 +70,34 @@ def test_phase_1d():
     ok(f"user_briefing passed through verbatim")
 
     # ------------------------------------------------------------------
-    # Node field names match Bible spec
+    # Node field names — leakage fix (v2.0):
+    #   /reset and /step return AgentNodeObservation (no sensor_lying / no
+    #   actual_temperature). The full Bible-shape NodeObservation lives on
+    #   /state for the Mission Control UI. Verify both sides of that contract.
     # ------------------------------------------------------------------
-    print("\n[4] Node fields match Bible spec")
+    print("\n[4a] /reset payload: agent-facing slim shape (no leakage)")
     obs = r.json()
+    agent_fields = {"sensor_reading", "generator_fuel_pct", "temperature_alarm",
+                    "vials_at_node", "vials_spoiled"}
+    for node in obs["nodes"]:
+        missing = agent_fields - set(node.keys())
+        assert not missing, f"Missing agent-facing fields on {node['node_name']}: {missing}"
+        assert "sensor_lying" not in node, \
+            f"LEAKAGE: sensor_lying present in /reset payload for {node['node_name']}"
+        assert "actual_temperature" not in node, \
+            f"LEAKAGE: actual_temperature present in /reset payload for {node['node_name']}"
+    ok("Agent-facing fields present; sensor_lying & actual_temperature correctly absent")
+
+    print("\n[4b] /state payload: full Bible-shape NodeObservation (UI contract)")
+    state_r = client.get("/state")
+    assert state_r.status_code == 200
+    state_payload = state_r.json()
     bible_fields = {"sensor_reading", "actual_temperature", "sensor_lying",
                     "generator_fuel_pct", "temperature_alarm", "vials_at_node"}
-    for node in obs["nodes"]:
+    for node in state_payload["nodes"]:
         missing = bible_fields - set(node.keys())
-        assert not missing, f"Missing Bible fields on {node['node_name']}: {missing}"
-    ok("All Bible fields present on every node")
+        assert not missing, f"Missing Bible fields on /state node {node['node_name']}: {missing}"
+    ok("All Bible fields (incl. sensor_lying, actual_temperature) present on every /state node")
 
     # ------------------------------------------------------------------
     # /step

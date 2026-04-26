@@ -21,9 +21,15 @@ import time
 from pathlib import Path
 
 try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except (AttributeError, Exception):
+    pass
+
+try:
     import httpx
 except ImportError:
-    print("❌ httpx not installed. Run: pip install httpx")
+    print("[ERROR] httpx not installed. Run: pip install httpx")
     sys.exit(1)
 
 # Configuration
@@ -176,10 +182,14 @@ def main():
         reasoning="Gathering baseline temperature data before making decisions."
     )
     print(f"    💰 Reward: {result1['reward']:.3f}")
-    
-    if any(n['sensor_lying'] for n in result1['observation']['nodes']):
-        print("    ⚠️  SENSOR LIE DETECTED! This is the demo moment.")
-    
+
+    # NOTE: We previously peeked at `result1['observation']['nodes'][i]['sensor_lying']`
+    # here to print "SENSOR LIE DETECTED". That field has been removed from the
+    # agent-facing Observation (see models.AgentNodeObservation) — agents must now
+    # reason about a possibly-lying sensor from the briefing, not from a leaked
+    # boolean. The privileged truth still lives on /state for the UI; if you want
+    # to verify lies in this demo, call `client.state()['nodes'][i]['sensor_lying']`.
+
     # Action 2: Check truck status  
     print("\n[2] Checking vaccine truck status...")
     result2 = client.step(
