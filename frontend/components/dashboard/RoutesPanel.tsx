@@ -14,7 +14,7 @@
  * the autopilot-ticking fix in commit 2408efe2.
  */
 
-import { memo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 
 import {
   NODE_LABELS,
@@ -62,31 +62,69 @@ function formatRoadType(rt: string): string {
     .join(" ");
 }
 
+type RouteMap = NonNullable<VaccineStateV2["routes"]>;
+
+function sanitizeRoutes(raw: unknown): RouteMap {
+  if (!raw || typeof raw !== "object") return {};
+  const entries = Object.entries(raw as Record<string, unknown>);
+  const out: RouteMap = {};
+  for (const [k, v] of entries) {
+    if (!v || typeof v !== "object") continue;
+    const r = v as Partial<RouteGeo>;
+    const distance = Number(r.distance_km);
+    const eta = Number(r.eta_min);
+    const roadType = typeof r.road_type === "string" ? r.road_type : "unknown";
+    if (!Number.isFinite(distance) || !Number.isFinite(eta)) continue;
+    out[k as RoadKey] = {
+      distance_km: distance,
+      eta_min: eta,
+      road_type: roadType,
+    };
+  }
+  return out;
+}
+
 function RoutesPanelInner({ routes }: RoutesPanelProps) {
-  if (!routes) return null;
-  const entries = Object.entries(routes);
+  const [fallbackRoutes, setFallbackRoutes] = useState<RouteMap>({});
+
+  // Hour-0 UX polish: /reset payload is intentionally slim and doesn't include
+  // routes. Fetch /state once if routes are absent so the panel can render
+  // immediately at h0 instead of waiting for the first tick.
+  useEffect(() => {
+    if (routes && Object.keys(routes).length > 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/state", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = (await res.json()) as { routes?: unknown };
+        if (cancelled) return;
+        setFallbackRoutes(sanitizeRoutes(json.routes));
+      } catch {
+        // Silent by design: absence/failure keeps legacy behavior unchanged.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [routes]);
+
+  const mergedRoutes = useMemo<RouteMap>(
+    () => ({ ...(fallbackRoutes ?? {}), ...(sanitizeRoutes(routes) ?? {}) }),
+    [fallbackRoutes, routes]
+  );
+
+  const entries = Object.entries(mergedRoutes);
   if (entries.length === 0) return null;
 
-  const parsed: ParsedRoute[] = entries.flatMap(([key, rawGeo]) => {
-    if (!rawGeo || typeof rawGeo !== "object") return [];
-    const geo = rawGeo as Partial<RouteGeo>;
-    const distance = Number(geo.distance_km);
-    const eta = Number(geo.eta_min);
-    const roadType = typeof geo.road_type === "string" ? geo.road_type : "unknown";
-    // Defensive guard: if payload is malformed, skip the row instead of risking
-    // a render-time crash that could blank the whole dashboard.
-    if (!Number.isFinite(distance) || !Number.isFinite(eta)) return [];
+  const parsed: ParsedRoute[] = entries.flatMap(([key, geo]) => {
     const { from, to } = parseRouteKey(key);
     return [
       {
         key: key as RoadKey,
         from,
         to,
-        geo: {
-          distance_km: distance,
-          eta_min: eta,
-          road_type: roadType,
-        },
+        geo: geo as RouteGeo,
       },
     ];
   });
