@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 # Stage 1: build the Next.js mission-control bundle as static HTML + JS.
 # ---------------------------------------------------------------------------
-FROM node:20-alpine AS frontend
+FROM node:20-bookworm-slim AS frontend
 WORKDIR /fe
 
 ARG NEXT_PUBLIC_ENV_BASE_URL=""
@@ -11,7 +11,11 @@ ENV NEXT_PUBLIC_ENV_BASE_URL=$NEXT_PUBLIC_ENV_BASE_URL
 ENV NEXT_PUBLIC_USE_LIVE=$NEXT_PUBLIC_USE_LIVE
 
 COPY frontend/package.json frontend/package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+# region agent log: shell-only diagnostic, runId=pre-fix-build-debug-v2, hyp=H_F1_F2_F3
+RUN node --version && npm --version && ls -la
+# endregion
+RUN npm install --no-audit --progress=false --loglevel=info
 
 COPY frontend/ ./
 RUN npm run build
@@ -32,88 +36,15 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-# region agent log
-RUN python - <<'PY'
-import json
-import platform
-import subprocess
-import time
-from pathlib import Path
-
-entry = {
-    "sessionId": "9e78a5",
-    "runId": "pre-fix-build-debug",
-    "hypothesisId": "H1_H2_H3",
-    "location": "Dockerfile:34",
-    "message": "pre-pip environment snapshot",
-    "data": {
-        "python_version": platform.python_version(),
-        "platform": platform.platform(),
-        "pip_version": subprocess.check_output(["python", "-m", "pip", "--version"], text=True).strip(),
-        "requirements_txt": Path("requirements.txt").read_text(encoding="utf-8", errors="replace"),
-    },
-    "timestamp": int(time.time() * 1000),
-}
-Path("debug-9e78a5.log").write_text(json.dumps(entry) + "\n", encoding="utf-8")
-print(json.dumps(entry))
-PY
+# region agent log: shell-only diagnostic, runId=pre-fix-build-debug-v2, hyp=H_P1_P2_P3
+RUN python --version && pip --version && cat requirements.txt
 # endregion
-
-# region agent log
-RUN pip install --no-cache-dir -r requirements.txt > /tmp/pip-install.log 2>&1 || ( \
-    python - <<'PY' \
-import json \
-import time \
-from pathlib import Path \
-tail = Path('/tmp/pip-install.log').read_text(encoding='utf-8', errors='replace').splitlines()[-120:] \
-entry = { \
-    'sessionId': '9e78a5', \
-    'runId': 'pre-fix-build-debug', \
-    'hypothesisId': 'H1_H2_H3', \
-    'location': 'Dockerfile:58', \
-    'message': 'pip install failed with tail', \
-    'data': {'pip_log_tail': tail}, \
-    'timestamp': int(time.time() * 1000), \
-} \
-with Path('debug-9e78a5.log').open('a', encoding='utf-8') as f: \
-    f.write(json.dumps(entry) + '\n') \
-print(json.dumps(entry)) \
-PY \
-    ; echo "---- pip install failure tail ----" \
-    ; tail -n 120 /tmp/pip-install.log \
-    ; exit 1 \
-)
-# endregion
+RUN pip install --no-cache-dir --verbose -r requirements.txt
 
 COPY models.py openenv.yaml ./
 COPY server/ ./server/
 COPY client.py validate_submission.py ./
 COPY README.md ./
-
-# region agent log
-RUN python - <<'PY'
-import json
-import time
-from pathlib import Path
-
-entry = {
-    "sessionId": "9e78a5",
-    "runId": "pre-fix-build-debug",
-    "hypothesisId": "H4",
-    "location": "Dockerfile:95",
-    "message": "post-copy app tree snapshot",
-    "data": {
-        "has_client_py": Path("client.py").exists(),
-        "has_validate_submission_py": Path("validate_submission.py").exists(),
-        "server_files": sorted([str(p) for p in Path("server").glob("*")])[:20],
-    },
-    "timestamp": int(time.time() * 1000),
-}
-with Path("debug-9e78a5.log").open("a", encoding="utf-8") as f:
-    f.write(json.dumps(entry) + "\n")
-print(json.dumps(entry))
-PY
-# endregion
 
 COPY --from=frontend /fe/out ./static_frontend
 
