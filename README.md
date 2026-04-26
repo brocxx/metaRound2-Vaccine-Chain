@@ -22,6 +22,8 @@ Every year, last-mile vaccine cold chains in rural India lose millions of doses 
 📓 **[Training Notebook](training/train_grpo.py)** •
 🎥 **[Video Walkthrough — coming soon]**
 
+> 📖 **[Quick Start guide → QUICKSTART.md](QUICKSTART.md)**
+
 ---
 
 ## The Core Innovation
@@ -183,15 +185,27 @@ Open browser to `http://localhost:7860/` for Mission Control, or `http://localho
 
 ### Observations
 
-Each `/state` returns:
+Two distinct shapes are returned: the agent gets a slim, leakage-free observation; the UI gets the full ground truth.
+
+**Each `/state` returns (full ground truth — UI only):**
 - `sensor_reading`: Current temperature reading (may be lying)
 - `actual_temperature`: True temperature
-- `sensor_lying`: Boolean flag indicating if sensor is currently malfunctioning
+- `sensor_lying`: Boolean flag indicating if the sensor is currently malfunctioning
 - `generator_fuel_pct`: Fuel level 0–100%
 - `temperature_alarm`: True if temp outside safe range [2°C, 8°C]
 - `vials_at_node`: Number of vaccine vials
 - `time_remaining_hours`: Time left in episode
 - `briefing`: Natural-language district briefing
+
+**Each `/step` and `/reset` returns to the agent (no ground truth leakage):**
+- `sensor_reading`: Current temperature reading (may be lying)
+- `generator_fuel_pct`: Fuel level 0–100%
+- `temperature_alarm`: True if sensor reads outside safe range [2°C, 8°C]
+- `vials_at_node`: Number of vaccine vials
+- `time_remaining_hours`: Time left in episode
+- `briefing`: Natural-language district briefing
+
+`actual_temperature` and `sensor_lying` are **never** exposed to the agent — they live on `State` only. Agents must reason about a possibly-lying sensor from the briefing paragraph, which is the central scientific question the environment is built to ask.
 
 ---
 
