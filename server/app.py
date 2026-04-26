@@ -1,21 +1,19 @@
 """
 FastAPI routes for the Vaccine Cold Chain OpenEnv environment.
 
-Thin routing layer ? all logic lives in environment.py and rubrics.py.
+Thin routing layer: all logic lives in environment.py and rubrics.py.
 Endpoints expose the standard OpenEnv contract: /reset, /step, /state.
 Additional endpoints: /health, /web (live UI), /openenv.yaml.
 """
 
 import os
 import sys
-import json
-import time
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, PlainTextResponse, JSONResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -25,7 +23,7 @@ from server.environment import VaccineColdChainEnv
 from models import Action
 
 app = FastAPI(
-    title="Vaccine Cold Chain ? OpenEnv Environment",
+    title="Vaccine Cold Chain - OpenEnv Environment",
     description=(
         "OpenEnv-compliant RL environment for vaccine cold chain management "
         "in rural India. Agent must combine natural-language district briefings "
@@ -34,7 +32,7 @@ app = FastAPI(
     version="2.0.0",
 )
 
-# Permissive CORS ? needed for the Next.js dev server (port 3000) to hit
+# Permissive CORS: needed for the Next.js dev server (port 3000) to hit
 # the env (port 7860) during local development, and harmless when both
 # are co-served from the same HF Space origin in production.
 _ALLOWED_ORIGINS = os.getenv(
@@ -52,27 +50,6 @@ app.add_middleware(
 
 _env = VaccineColdChainEnv()
 _WEB_HTML_PATH = Path(__file__).parent / "web.html"
-# Repo-root log file (works on Windows, Linux/HF, and teammates' machines).
-_DEBUG_LOG_PATH = Path(__file__).resolve().parent.parent / "debug-096157.log"
-
-
-def _debug_log(hypothesis_id: str, message: str, data: dict) -> None:
-    # #region agent log
-    payload = {
-        "sessionId": "096157",
-        "runId": "runtime-check",
-        "hypothesisId": hypothesis_id,
-        "location": "server/app.py",
-        "message": message,
-        "data": data,
-        "timestamp": int(time.time() * 1000),
-    }
-    try:
-        with _DEBUG_LOG_PATH.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(payload, ensure_ascii=True) + "\n")
-    except Exception:
-        pass
-    # #endregion
 
 
 # ---------------------------------------------------------------------------
@@ -229,18 +206,7 @@ _STATIC_FRONTEND_DIR = Path(
     )
 )
 
-# #region agent log
-_debug_log(
-    "H2",
-    "static_frontend_probe",
-    {"path": str(_STATIC_FRONTEND_DIR), "exists": _STATIC_FRONTEND_DIR.is_dir()},
-)
-# #endregion
-
 if _STATIC_FRONTEND_DIR.is_dir():
-    # #region agent log
-    _debug_log("H2", "mounting_static_frontend", {"directory": str(_STATIC_FRONTEND_DIR)})
-    # #endregion
     app.mount(
         "/",
         StaticFiles(directory=str(_STATIC_FRONTEND_DIR), html=True),
@@ -251,13 +217,10 @@ else:
     @app.get("/", response_class=HTMLResponse)
     async def root_fallback():
         """Fallback root when the Next.js export hasn't been built into
-        the container ? sends the user to the legacy HTML UI."""
-        # #region agent log
-        _debug_log("H3", "root_fallback_served", {"reason": "static_frontend_missing"})
-        # #endregion
+        the container; sends the user to the legacy HTML UI."""
         return HTMLResponse(
             content=(
-                "<h1>Vaccine Cold Chain ? API up</h1>"
+                "<h1>Vaccine Cold Chain - API up</h1>"
                 "<p>The Next.js mission control bundle is not present in this container "
                 "(<code>static_frontend/</code> missing). The JSON env API at "
                 "<code>/health</code>, <code>/reset</code>, <code>/step</code>, "

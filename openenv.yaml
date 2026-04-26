@@ -55,7 +55,7 @@ action_space:
       description: "Target node: DVS_Barmer, CHC_Balotra, or PHC_Sindhari"
     - name: "action_type"
       type: "string"
-      enum: ["check_temperature", "request_fuel", "schedule_outreach", "check_truck_status", "request_emergency"]
+      enum: ["check_temperature", "request_fuel", "schedule_outreach", "check_truck_status", "request_emergency", "no_op"]
       description: "Action to perform"
     - name: "quantity"
       type: "integer"
@@ -70,7 +70,8 @@ tags:
   - "cold-chain"
   - "healthcare"
   - "india"
-  - "long-horizon"
+  - "world-modeling"
+  - "professional-tasks"
   - "ethical-tension"
 
 difficulty_levels:

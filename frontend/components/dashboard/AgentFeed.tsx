@@ -39,7 +39,7 @@ function actionGlyph(action: string | null): { glyph: string; color: string } {
     return { glyph: "✕", color: "var(--danger-red)" };
   if (action.startsWith("check_truck"))
     return { glyph: "🛻", color: "var(--cold-cyan)" };
-  if (action.startsWith("do_nothing"))
+  if (action.startsWith("no_op"))
     return { glyph: "○", color: "var(--ink-muted)" };
   return { glyph: "·", color: "var(--ink-secondary)" };
 }

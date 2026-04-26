@@ -11,7 +11,7 @@ short_description: Vaccine cold chain OpenEnv + Mission Control UI
 
 # Vaccine Cold Chain — OpenEnv Environment (Round 2)
 
-> **OpenEnv Hackathon India 2026** • **Theme #2: Long-Horizon Planning & Instruction Following**
+> **OpenEnv Hackathon India 2026** • **Theme #3.1: World Modeling (Professional Tasks)**
 
 Every year, last-mile vaccine cold chains in rural India lose millions of doses to preventable failures — sensor faults, generator outages, roads that close after two days of rain. The people managing these chains receive sensor numbers. They also receive a paragraph from the district health officer. Current RL environments give agents only the numbers.
 
@@ -20,7 +20,7 @@ Every year, last-mile vaccine cold chains in rural India lose millions of doses 
 🎯 **[Live Demo](https://huggingface.co/spaces/brocxx/vaccine-cold-chain-v2)** • 
 📊 **[Reward Curve](Training_Evidence/Reward_Curve/reward_curve.png)** • 
 📓 **[Training Notebook](training/train_grpo.py)** •
-**🎥 Video Walkthrough — coming soon**
+**🎥 Video Walkthrough — add link before final submission**
 
 > 📖 **[Quick Start guide → QUICKSTART.md](QUICKSTART.md)**
 
@@ -34,11 +34,11 @@ Both agents below see the **same** structured observation: PHC_Sindhari at 11.2�
 
 ### Without Briefing (baseline):
 > *"Temperature is 11.2°C, well above the 8°C safety limit, and the alarm is CRITICAL. Power is not the issue (generator ON, fuel 100%). Waiting will result in loss of all 80 vials."*
-> **Final action: `transfer_stock`** → **Wrong.** Wastes 80 vials moving them away from a sensor that's lying.
+> **Final action: `schedule_outreach`** → **Wrong.** Commits stock movement based on a false alarm from a lying sensor.
 
 ### With Briefing:
 > *"The reported temperature (11.2°C) is above the safe range, but the briefing explicitly warns that PHC_Sindhari's sensor can overreport by 3–4°C. Adjusting for this error, the true temperature is likely around 7–8°C. Generator ON, fuel 100% — no power-failure evidence. A previous false alarm here already wasted 40 vials."*
-> **Final action: `do_nothing`** → **Correct.** Vaccines preserved, no transport waste.
+> **Final action: `no_op`** → **Correct.** Vaccines preserved, no unnecessary movement.
 
 > **In our 8-take ablation: 0/4 baseline runs got this right. 4/4 briefing runs did.** See [Training Evidence ↓](#-training-evidence) for the screenshots.
 
@@ -238,13 +238,13 @@ reward = coverage − waste_penalty − missed_sessions_penalty
 
 ## 📊 Training Evidence
 
-We ran an ablation: **same model, same seed, same observation — only the `briefing` field differs.** All raw screenshots live in [`Training_Evidence/`](./Training_Evidence/).
+We ran a controlled ablation: **same model, same seed, same observation — only the `briefing` field differs.** All raw screenshots live in [`Training_Evidence/`](./Training_Evidence/).
 
 ### Reward curve — briefing introduced at episode 20
 
 ![Agent Performance: Without vs With District Briefing](<Training_Evidence/Reward_Curve/reward_curve.png>)
 
-> *Scenario 1 ablation (below) provides the cleanest quantitative signal: 0/4 baseline runs chose the correct action vs 4/4 briefing runs — same model, same seed, same structured observation.*
+> *Scenario 1 ablation (below) provides the cleanest signal: 0/4 baseline runs chose the correct action vs 4/4 briefing runs — same model, same seed, same structured observation.*
 
 > *Both curves use the same model, seed, and structured observation. Only the `briefing`
 > field differs. Briefing introduced at episode 20. Full training log:
@@ -252,10 +252,10 @@ We ran an ablation: **same model, same seed, same observation — only the `brie
 
 | Phase | Episodes | Mean Episode Reward | Trend |
 |---|---|---|---|
-| **Baseline (no briefing)** | 1 – 20 | ~0.20 | flat / mildly declining |
-| **With district briefing** | 21 – 60 | climbs **0.22 → 0.65** | monotonic uptrend |
+| **Baseline (no briefing)** | 1 – 20 | low / unstable | high variance |
+| **With district briefing** | 21 – 60 | still noisy | no clear monotonic gain at 60 episodes |
 
-**~3× improvement** after briefing is introduced. Reproducible code: [`Training_Evidence/Reward_Curve/Colab_Code.txt`](./Training_Evidence/Reward_Curve/Colab_Code.txt).
+At 60 episodes, GRPO on Qwen2.5-1.5B (LoRA, T4) showed instability and reward variance rather than clean convergence. The training pipeline is still valid end-to-end (policy generation -> env scoring -> gradient updates). Our strongest causal evidence for briefing value comes from the direct Scenario 1 toggle test (same model, same seed, no weight updates; briefing field only). Reproducible code: [`Training_Evidence/Reward_Curve/Colab_Code.txt`](./Training_Evidence/Reward_Curve/Colab_Code.txt).
 
 ---
 
@@ -263,21 +263,21 @@ We ran an ablation: **same model, same seed, same observation — only the `brie
 
 **Setup:** PHC_Sindhari sensor reads 11.2°C, alarm CRITICAL. Generator ON at 100% fuel. Road OPEN. Hour 8 of 72.
 **Briefing adds:** "PHC_Sindhari temperature sensor had a calibration fault flagged in the last eVIN quarterly report — readings have been known to spike 3–4°C above actual. A false alarm here previously caused an unnecessary emergency transfer that wasted 40 vials."
-**Optimal action:** `do_nothing` (true temp ≈ 7–8°C, well within safe range).
+**Optimal action:** `no_op` (true temp ≈ 7–8°C, well within safe range).
 
 | Take | Without briefing → action | With briefing → action |
 |:---:|---|---|
-| 1 | `transfer_stock` ❌ | `do_nothing` ✅ |
-| 2 | `transfer_stock` ❌ | `do_nothing` ✅ |
-| 3 | `transfer_stock` ❌ | `do_nothing` ✅ |
-| 4 | `transfer_stock` ❌ | `do_nothing` ✅ |
+| 1 | `schedule_outreach` ❌ | `no_op` ✅ |
+| 2 | `schedule_outreach` ❌ | `no_op` ✅ |
+| 3 | `schedule_outreach` ❌ | `no_op` ✅ |
+| 4 | `schedule_outreach` ❌ | `no_op` ✅ |
 | **Score** | **0 / 4** | **4 / 4** |
 
 Screenshots:
 - Baseline takes: [1](<Training_Evidence/Scenario1/Prompt1WITHOUTBriefing(dumb_agent)(take_1).png>) · [2](<Training_Evidence/Scenario1/Prompt1WITHOUTBriefing(dumb_agent)(take_2).png>) · [3](<Training_Evidence/Scenario1/Prompt1WITHOUTBriefing(dumb_agent)(take_3).png>) · [4](<Training_Evidence/Scenario1/Prompt1WITHOUTBriefing(dumb_agent)(take_4).png>)
 - Briefing takes: [1](<Training_Evidence/Scenario1/Prompt2WITHBriefing(smart_agent)(take_1).png>) · [2](<Training_Evidence/Scenario1/Prompt2WITHBriefing(smart_agent)(take_2).png>) · [3](<Training_Evidence/Scenario1/Prompt2WITHBriefing(smart_agent)(take_3).png>) · [4](<Training_Evidence/Scenario1/Prompt2WITHBriefing(smart_agent)(take_4).png>)
 
-> **Why this matters.** Both agents see identical structured numbers. The only thing the briefing supplies is *prior reliability information about the sensor itself.* The baseline cannot reason past the alarm; the briefing-enabled agent treats the reading as evidence rather than ground truth. This is exactly the long-horizon-instruction-following gap Theme #2 is trying to measure.
+> **Why this matters.** Both agents see identical structured numbers. The only thing the briefing supplies is *prior reliability information about the sensor itself.* The baseline cannot reason past the alarm; the briefing-enabled agent treats the reading as evidence rather than ground truth. This is exactly the world-modeling gap Theme #3.1 is trying to measure.
 
 ---
 
@@ -288,7 +288,7 @@ Screenshots:
 
 | Aspect | Without briefing | With briefing |
 |---|---|---|
-| Final action | `transfer_stock` | `transfer_stock` (same) |
+| Final action | `schedule_outreach` | `schedule_outreach` (same) |
 | Reasoning length | 3 lines, "delaying risks missing the outreach session" | Multi-stage plan: immediate light-vehicle dispatch → local PHC redistribution → session triage → district escalation → 7–10 day isolation pre-positioning |
 | Recognises closure window | ❌ | ✅ ("you don't have a scheduling problem — you have a closing access window problem") |
 | Plans for **after** the road closes | ❌ | ✅ (4–6 contingencies) |
@@ -311,8 +311,8 @@ Screenshots:
 
 | Take | Without briefing | With briefing |
 |:---:|---|---|
-| 1 | `cancel_outreach(CHC_Balotra)` ✅ | `cancel_outreach(CHC_Balotra)` ✅ |
-| 2 | `cancel_outreach(CHC_Balotra)` ✅ | `cancel_outreach(CHC_Balotra)` ✅ |
+| 1 | `request_emergency(CHC_Balotra)` ✅ | `request_emergency(CHC_Balotra)` ✅ |
+| 2 | `request_emergency(CHC_Balotra)` ✅ | `request_emergency(CHC_Balotra)` ✅ |
 
 **Honest framing:** Both agents pick the right action. Generic public-health priors ("first dose > booster") are strong enough on their own to get the action correct. The interesting and **measurable** gap is in the **quality and accuracy** of the justification:
 
@@ -326,7 +326,7 @@ Screenshots:
 
 So even when the action is the same, the briefing version produces **audit-defensible reasoning** that a District Health Officer could sign off on — explicit policy citation, equity dimension, no factual slips. The baseline version wins the right action by accident of generic priors, and one of the two takes gets a flu-vaccine fact wrong while doing it.
 
-> **Why this matters for training.** Our `proactive_info_seeking` rubric component is what reward-shapes this gap — even when surface action matches, it scores higher when the agent's reasoning trace cites concrete briefing-derived facts vs. relying on generic priors. This is exactly the kind of signal that makes this environment a Theme #2 fit rather than a basic gridworld.
+> **Why this matters for training.** Our `proactive_info_seeking` rubric component is what reward-shapes this gap — even when surface action matches, it scores higher when the agent's reasoning trace cites concrete briefing-derived facts vs. relying on generic priors. This is exactly the kind of signal that makes this environment a Theme #3.1 fit rather than a basic gridworld.
 
 Screenshots:
 - Baseline takes (new prompt — both roads OPEN, truck capacity = 1): [1](<Training_Evidence/Scenario3/Prompt1WITHOUTBriefing(dumb_move)take1.png>) · [2](<Training_Evidence/Scenario3/Prompt1WITHOUTBriefing(dumb_move)take2.png>)
@@ -341,7 +341,7 @@ Screenshots:
 |---|---|---|
 | 1 — Sensor false alarm | **Action flips** (wrong → right), 4-for-4 vs 0-for-4 | **Strong** ✅ |
 | 2 — Closing road window | Same action, **multi-stage plan** instead of 3 lines, grounded in 2022/2023 historical closure data | **Medium** ✅ |
-| 3 — Triage (both roads open, must cancel one) | Same action via generic priors, but briefing cites **district priority protocol** by name, adds equity / 3-month-window / ASHA-reschedulability reasoning, and avoids the factual flu-booster slip seen in baseline Take 2 | **Medium** ✅ |
+| 3 — Triage (both roads open, one emergency lane) | Same action via generic priors, but briefing cites **district priority protocol** by name, adds equity / 3-month-window / ASHA-reschedulability reasoning, and avoids the factual flu-booster slip seen in baseline Take 2 | **Medium** ✅ |
 
 All eight Scenario 1 takes, all four Scenario 2 takes, and all four Scenario 3 takes were produced by feeding identical prompts to the same model with the only variation being the presence of the briefing block — no cherry-picking, no prompt tuning between runs.
 
@@ -399,7 +399,7 @@ This environment is grounded in the real vaccine cold chain hierarchy and challe
 
 3. **`request_sensor_inspection` Action** — Costs 4 hours, returns the true temperature for one node afterwards. Models information-gathering under time pressure.
 
-Together, these would push the environment from **"agent reads a paragraph"** toward **"agent conducts an intake interview, reasons about uncertainty, and gathers data over time"** — a much stronger Theme #2 fit.
+Together, these would push the environment from **"agent reads a paragraph"** toward **"agent conducts an intake interview, reasons about uncertainty, and gathers data over time"** — a stronger Theme #3.1 world-modeling benchmark.
 
 ---
 
@@ -412,8 +412,8 @@ See [`TRAINING_HANDOFF.md`](./TRAINING_HANDOFF.md) for TRL/GRPO integration inst
 ## 🏆 Competition Details
 
 - **Hackathon:** OpenEnv Hackathon India 2026
-- **Theme:** #2 — Long-Horizon Planning & Instruction Following
-- **Repository:** [brocxx/Vaccine-Cold-Chain-OpenEnv](https://github.com/brocxx/Vaccine-Cold-Chain-OpenEnv)
+- **Theme:** #3.1 — World Modeling (Professional Tasks)
+- **Repository:** [brocxx/metaRound2-Vaccine-Chain](https://github.com/brocxx/metaRound2-Vaccine-Chain)
 - **HuggingFace Space:** [vaccine-cold-chain-v2](https://huggingface.co/spaces/brocxx/vaccine-cold-chain-v2)
 
 ---

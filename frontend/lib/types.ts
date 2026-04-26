@@ -61,11 +61,12 @@ export const ROADS: RoadEdge[] = [
 // ─── Actions ──────────────────────────────────────────────────────────────
 
 export type ActionType =
-  | "transfer_stock"
-  | "request_fuel"
-  | "cancel_outreach"
+  | "check_temperature"
   | "check_truck_status"
-  | "do_nothing";
+  | "no_op"
+  | "request_fuel"
+  | "request_emergency"
+  | "schedule_outreach";
 
 export interface VaccineAction {
   action_type: ActionType;

@@ -47,7 +47,7 @@ const NO_BRIEFING_ACTION = `request_fuel(PHC_Sindhari)`;
 
 const WITH_BRIEFING_REASONING = `Sensor reads 9.4°C — alarm tripped. But the briefing explicitly flagged this exact sensor for calibration drift in last quarter's eVIN audit, and instructed me to cross-check alarms against generator state. Generator is ON; fuel at 100%. Ambient is ~28°C, so a real cooling failure would have to push from 5°C past 8°C in one hour, which the generator output makes implausible. Conclusion: this is the false alarm the briefing predicted. Holding action.`;
 
-const WITH_BRIEFING_ACTION = `do_nothing`;
+const WITH_BRIEFING_ACTION = `no_op`;
 
 export default function BeforeAfterPage() {
   const sectionRef = useRef<HTMLDivElement>(null);
