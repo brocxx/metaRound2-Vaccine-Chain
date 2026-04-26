@@ -210,7 +210,9 @@ Two distinct shapes are returned: the agent gets a slim, leakage-free observatio
 ### Map data (static OSM)
 
 - **Map data:** static OSM-derived (`geo_config.json`) for deployment stability — no network calls from the running environment.
-- The backend exposes two additive fields on `/state`: `nodes_geo` (lat/lon/type per node) and `routes` (`distance_km`, `eta_min`, `road_type` per route). The Mission Control UI surfaces these as a small overlay on the triangle map. Agent observations (`/reset`, `/step`) are unchanged.
+- The backend exposes two additive fields on `/state`: `nodes_geo` (lat/lon/type per node) and `routes` (`distance_km`, `eta_min`, `road_type` per route). Agent observations (`/reset`, `/step`) are unchanged.
+- Mission Control (`/dashboard?live=1`) renders a `Static Geo · OSM` route badge panel on the triangle map showing distance/ETA/road type for each route. The panel is visible from hour 0 via a one-time `/state` fallback fetch after reset.
+- The legacy fallback UI at `/web` intentionally stays unchanged and does not render the OSM badge panel.
 - If `geo_config.json` is missing or invalid, the env runs unchanged with `nodes_geo`/`routes` as `{}`.
 - Last known-good pre-OSM commit on `hf-clean`: `7f2212b6` (rollback target).
 
