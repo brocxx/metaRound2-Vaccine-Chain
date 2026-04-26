@@ -27,8 +27,12 @@ export interface BackendAction {
 export interface BackendNodeObservation {
   node_name: BackendNodeName;
   sensor_reading: number;
-  actual_temperature: number;
-  sensor_lying: boolean;
+  /**
+   * Present on `/state` (UI ground truth), omitted on `/reset` and `/step`
+   * agent-facing observations by design.
+   */
+  actual_temperature?: number;
+  sensor_lying?: boolean;
   generator_fuel_pct: number; // 0..100
   temperature_alarm: boolean;
   vials_at_node: number;

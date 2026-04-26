@@ -60,19 +60,34 @@ function asTask(d: string | undefined): Task {
 }
 
 function adaptNode(n: BackendNodeObservation): NodeStateV2 {
-  const fuel01 = Math.max(0, Math.min(1, n.generator_fuel_pct / 100));
+  // `/state` includes full ground truth, while `/reset` and `/step` are
+  // intentionally leakage-safe and may omit `actual_temperature`/`sensor_lying`.
+  // Coerce defensively so render paths (which use .toFixed()) never crash.
+  const sensorReading = Number.isFinite(n.sensor_reading)
+    ? n.sensor_reading
+    : EMPTY_NODE.sensor_reading;
+  const actualTemperature = Number.isFinite(n.actual_temperature)
+    ? (n.actual_temperature as number)
+    : sensorReading;
+  const fuelPct100 = Number.isFinite(n.generator_fuel_pct)
+    ? n.generator_fuel_pct
+    : 100;
+  const fuel01 = Math.max(0, Math.min(1, fuelPct100 / 100));
   return {
-    vials: n.vials_at_node,
-    sensor_reading: n.sensor_reading,
-    actual_temperature: n.actual_temperature,
-    sensor_lying: n.sensor_lying,
+    vials: Number.isFinite(n.vials_at_node) ? n.vials_at_node : EMPTY_NODE.vials,
+    sensor_reading: sensorReading,
+    actual_temperature: actualTemperature,
+    sensor_lying: typeof n.sensor_lying === "boolean" ? n.sensor_lying : false,
     // Backend doesn't expose `generator_working` to the agent — but if
     // fuel is at 0 the simulation drives temperature toward 22°C, which
     // is what `generator_on=false` is meant to surface in the UI. So
     // approximate: generator is "on" while there's any fuel left.
-    generator_on: n.generator_fuel_pct > 0,
+    generator_on: fuelPct100 > 0,
     generator_fuel_pct: fuel01,
-    temperature_alarm: n.temperature_alarm,
+    temperature_alarm:
+      typeof n.temperature_alarm === "boolean"
+        ? n.temperature_alarm
+        : sensorReading > 8,
   };
 }
 
