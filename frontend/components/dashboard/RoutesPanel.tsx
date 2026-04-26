@@ -55,6 +55,7 @@ function parseRouteKey(key: string): { from: NodeKey | null; to: NodeKey | null 
 }
 
 function formatRoadType(rt: string): string {
+  if (typeof rt !== "string" || rt.length === 0) return "Unknown";
   return rt
     .split("_")
     .map((s) => (s.length ? s[0].toUpperCase() + s.slice(1) : s))
@@ -66,10 +67,30 @@ function RoutesPanelInner({ routes }: RoutesPanelProps) {
   const entries = Object.entries(routes);
   if (entries.length === 0) return null;
 
-  const parsed: ParsedRoute[] = entries.map(([key, geo]) => {
+  const parsed: ParsedRoute[] = entries.flatMap(([key, rawGeo]) => {
+    if (!rawGeo || typeof rawGeo !== "object") return [];
+    const geo = rawGeo as Partial<RouteGeo>;
+    const distance = Number(geo.distance_km);
+    const eta = Number(geo.eta_min);
+    const roadType = typeof geo.road_type === "string" ? geo.road_type : "unknown";
+    // Defensive guard: if payload is malformed, skip the row instead of risking
+    // a render-time crash that could blank the whole dashboard.
+    if (!Number.isFinite(distance) || !Number.isFinite(eta)) return [];
     const { from, to } = parseRouteKey(key);
-    return { key: key as RoadKey, from, to, geo: geo as RouteGeo };
+    return [
+      {
+        key: key as RoadKey,
+        from,
+        to,
+        geo: {
+          distance_km: distance,
+          eta_min: eta,
+          road_type: roadType,
+        },
+      },
+    ];
   });
+  if (parsed.length === 0) return null;
 
   return (
     <div
