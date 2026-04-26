@@ -18,7 +18,7 @@ Every year, last-mile vaccine cold chains in rural India lose millions of doses 
 **This environment gives agents both. The gap in performance is the finding.**
 
 🎯 **[Live Demo](https://huggingface.co/spaces/brocxx/vaccine-cold-chain-v2)** • 
-📊 **[Reward Curve](Training_Evidence/Reward_Curve/reward_curve.png)** • 
+📊 **[Reward Curve](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Reward_Curve/reward_curve.png)** • 
 📓 **[Training Notebook](training/train_grpo.py)** •
 **🎥 Video Walkthrough — add link before final submission**
 
@@ -247,11 +247,11 @@ reward = coverage − waste_penalty − missed_sessions_penalty
 
 ## 📊 Training Evidence
 
-We ran a controlled ablation: **same model, same seed, same observation — only the `briefing` field differs.** All raw screenshots live in [`Training_Evidence/`](./Training_Evidence/).
+We ran a controlled ablation: **same model, same seed, same observation — only the `briefing` field differs.** All available screenshots are hosted in [`evidence-assets/Training_Evidence`](https://github.com/brocxx/metaRound2-Vaccine-Chain/tree/evidence-assets/Training_Evidence).
 
 ### Reward curve — briefing introduced at episode 20
 
-![Agent Performance: Without vs With District Briefing](<Training_Evidence/Reward_Curve/reward_curve.png>)
+![Agent Performance: Without vs With District Briefing](https://raw.githubusercontent.com/brocxx/metaRound2-Vaccine-Chain/evidence-assets/Training_Evidence/Reward_Curve/reward_curve.png)
 
 > *Scenario 1 ablation (below) provides the cleanest signal: 0/4 baseline runs chose the correct action vs 4/4 briefing runs — same model, same seed, same structured observation.*
 
@@ -264,7 +264,7 @@ We ran a controlled ablation: **same model, same seed, same observation — only
 | **Baseline (no briefing)** | 1 – 20 | low / unstable | high variance |
 | **With district briefing** | 21 – 60 | still noisy | no clear monotonic gain at 60 episodes |
 
-At 60 episodes, GRPO on Qwen2.5-1.5B (LoRA, T4) showed instability and reward variance rather than clean convergence. The training pipeline is still valid end-to-end (policy generation -> env scoring -> gradient updates). Our strongest causal evidence for briefing value comes from the direct Scenario 1 toggle test (same model, same seed, no weight updates; briefing field only). Reproducible code: [`Training_Evidence/Reward_Curve/Colab_Code.txt`](./Training_Evidence/Reward_Curve/Colab_Code.txt).
+At 60 episodes, GRPO on Qwen2.5-1.5B (LoRA, T4) showed instability and reward variance rather than clean convergence. The training pipeline is still valid end-to-end (policy generation -> env scoring -> gradient updates). Our strongest causal evidence for briefing value comes from the direct Scenario 1 toggle test (same model, same seed, no weight updates; briefing field only). Reproducible code: [`Training_Evidence/Reward_Curve/Colab_Code.txt`](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Reward_Curve/Colab_Code.txt).
 
 ---
 
@@ -283,8 +283,7 @@ At 60 episodes, GRPO on Qwen2.5-1.5B (LoRA, T4) showed instability and reward va
 | **Score** | **0 / 4** | **4 / 4** |
 
 Screenshots:
-- Baseline takes: [1](<Training_Evidence/Scenario1/Prompt1WITHOUTBriefing(dumb_agent)(take_1).png>) · [2](<Training_Evidence/Scenario1/Prompt1WITHOUTBriefing(dumb_agent)(take_2).png>) · [3](<Training_Evidence/Scenario1/Prompt1WITHOUTBriefing(dumb_agent)(take_3).png>) · [4](<Training_Evidence/Scenario1/Prompt1WITHOUTBriefing(dumb_agent)(take_4).png>)
-- Briefing takes: [1](<Training_Evidence/Scenario1/Prompt2WITHBriefing(smart_agent)(take_1).png>) · [2](<Training_Evidence/Scenario1/Prompt2WITHBriefing(smart_agent)(take_2).png>) · [3](<Training_Evidence/Scenario1/Prompt2WITHBriefing(smart_agent)(take_3).png>) · [4](<Training_Evidence/Scenario1/Prompt2WITHBriefing(smart_agent)(take_4).png>)
+- Scenario 1 screenshot set: **pending upload** (source files currently missing from local evidence directory; links will be added in the next evidence sync).
 
 > **Why this matters.** Both agents see identical structured numbers. The only thing the briefing supplies is *prior reliability information about the sensor itself.* The baseline cannot reason past the alarm; the briefing-enabled agent treats the reading as evidence rather than ground truth. This is exactly the world-modeling gap Theme #3.1 is trying to measure.
 
@@ -303,9 +302,9 @@ Screenshots:
 | Plans for **after** the road closes | ❌ | ✅ (4–6 contingencies) |
 
 Screenshots:
-- Baseline takes: [1](<Training_Evidence/Scenario2/Prompt1WITHOUTBriefing(dumb_agent)(take_1)scenario2.png>) · [2](<Training_Evidence/Scenario2/Prompt1WITHOUTBriefing(dumb_agent)(take_2)scenario2.png>)
-- Briefing — Take 1: [1](<Training_Evidence/Scenario2/Prompt2WITHBriefing(smart_agent)scenario2/Take1/1.png>) · [2](<Training_Evidence/Scenario2/Prompt2WITHBriefing(smart_agent)scenario2/Take1/2.png>) · [3](<Training_Evidence/Scenario2/Prompt2WITHBriefing(smart_agent)scenario2/Take1/3.png>) · [4](<Training_Evidence/Scenario2/Prompt2WITHBriefing(smart_agent)scenario2/Take1/4.png>)
-- Briefing — Take 2: [5](<Training_Evidence/Scenario2/Prompt2WITHBriefing(smart_agent)scenario2/Take2/5.png>) · [6](<Training_Evidence/Scenario2/Prompt2WITHBriefing(smart_agent)scenario2/Take2/6.png>) · [7](<Training_Evidence/Scenario2/Prompt2WITHBriefing(smart_agent)scenario2/Take2/7.png>)
+- Baseline takes: **pending upload** (files not present in current evidence bundle).
+- Briefing — Take 1: [1](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Scenario2/Prompt2WITHBriefing(smart_agent)scenario2/Take1/1.png) · [2](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Scenario2/Prompt2WITHBriefing(smart_agent)scenario2/Take1/2.png) · [3](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Scenario2/Prompt2WITHBriefing(smart_agent)scenario2/Take1/3.png) · [4](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Scenario2/Prompt2WITHBriefing(smart_agent)scenario2/Take1/4.png)
+- Briefing — Take 2: [5](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Scenario2/Prompt2WITHBriefing(smart_agent)scenario2/Take2/5.png) · [6](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Scenario2/Prompt2WITHBriefing(smart_agent)scenario2/Take2/6.png) · [7](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Scenario2/Prompt2WITHBriefing(smart_agent)scenario2/Take2/7.png)
 
 > **Why this matters.** Surface action is identical, so a coverage-only metric would say "no improvement." But the **plan quality** is dramatically richer with briefing — the agent grounds urgency in specific historical precedent, not generic "delay is risky." This is precisely the behavior our `proactive_info_seeking` rubric component is designed to capture.
 
@@ -338,9 +337,9 @@ So even when the action is the same, the briefing version produces **audit-defen
 > **Why this matters for training.** Our `proactive_info_seeking` rubric component is what reward-shapes this gap — even when surface action matches, it scores higher when the agent's reasoning trace cites concrete briefing-derived facts vs. relying on generic priors. This is exactly the kind of signal that makes this environment a Theme #3.1 fit rather than a basic gridworld.
 
 Screenshots:
-- Baseline takes (new prompt — both roads OPEN, truck capacity = 1): [1](<Training_Evidence/Scenario3/Prompt1WITHOUTBriefing(dumb_move)take1.png>) · [2](<Training_Evidence/Scenario3/Prompt1WITHOUTBriefing(dumb_move)take2.png>)
-- Briefing — Take 1 (briefing applies to either prompt; the policy is the same): [1](<Training_Evidence/Scenario3/Prompt2WITHBriefing(smart_move)/Take1/1.png>) · [2](<Training_Evidence/Scenario3/Prompt2WITHBriefing(smart_move)/Take1/2.png>)
-- Briefing — Take 2: [1](<Training_Evidence/Scenario3/Prompt2WITHBriefing(smart_move)/Take2/1.png>) · [2](<Training_Evidence/Scenario3/Prompt2WITHBriefing(smart_move)/Take2/2.png>)
+- Baseline takes (new prompt — both roads OPEN, truck capacity = 1): [1](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Scenario3/Prompt1WITHOUTBriefing(dumb_move)take1.png) · [2](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Scenario3/Prompt1WITHOUTBriefing(dumb_move)take2.png)
+- Briefing — Take 1 (briefing applies to either prompt; the policy is the same): [1](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Scenario3/Prompt2WITHBriefing(smart_move)/Take1/1.png) · [2](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Scenario3/Prompt2WITHBriefing(smart_move)/Take1/2.png)
+- Briefing — Take 2: [1](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Scenario3/Prompt2WITHBriefing(smart_move)/Take2/1.png) · [2](https://github.com/brocxx/metaRound2-Vaccine-Chain/blob/evidence-assets/Training_Evidence/Scenario3/Prompt2WITHBriefing(smart_move)/Take2/2.png)
 
 ---
 
