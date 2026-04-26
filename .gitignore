@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+.Python
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+env/
+venv/
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend (built fresh inside the Docker image)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/.env*.local
+
+# Local-only static frontend mirror produced by `docker build` or by
+# `cd frontend && npm run build && cp -r out ../static_frontend`.
+# In production HF Spaces this is recreated during the Docker build.
+static_frontend/
+
+# Smoke and dev artifacts
+*.log
+*.tmp
+*.md.bak
+
+# Eval outputs (regenerate via 'make eval-scenario1' / 'make eval-all')
+eval_outputs/
+eval_results.json

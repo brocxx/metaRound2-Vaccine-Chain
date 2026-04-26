@@ -1,0 +1,82 @@
+name: vaccine-cold-chain
+version: "2.0"
+description: "OpenEnv-compliant RL environment for vaccine cold chain management in rural India with language briefings and sensor reliability"
+entry_point: "server.environment:VaccineColdChainEnv"
+
+# -----------------------------------------------------------------------------
+# Observation contract (v2.0 — leakage fixed):
+#
+# The AGENT (via /reset and /step) receives the slim per-node shape below
+# (`AgentNodeObservation` in models.py). The two privileged ground-truth
+# fields, `sensor_lying` and `actual_temperature`, are NOT exposed to the
+# agent — they live on /state only, where the Mission Control UI reads them.
+#
+# This separation is what makes the "briefing vs no-briefing" ablation
+# scientifically valid: a non-LLM agent cannot bypass the briefing by
+# checking `sensor_lying == True` and ignoring the alarm. It must reason
+# about a possibly-lying sensor from the natural-language district briefing.
+#
+# Schema keys here are unchanged from v1.x for backward compatibility with
+# any existing OpenEnv tooling — the leakage fix is enforced at the
+# Python/HTTP layer, documented above each field.
+# -----------------------------------------------------------------------------
+observation_space:
+  type: "dict"
+  fields:
+    # --- Exposed to the agent (/reset, /step) AND the UI (/state) ---
+    - name: "sensor_reading"
+      type: "float"
+      description: "Temperature sensor reading in Celsius (may be lying — agent must infer this from the briefing)"
+    - name: "generator_fuel_pct"
+      type: "float"
+      description: "Generator fuel percentage (0-100)"
+    - name: "temperature_alarm"
+      type: "boolean"
+      description: "Alarm flag derived from the (possibly lying) sensor reading"
+    - name: "vials_at_node"
+      type: "integer"
+      description: "Number of vaccine vials at this node"
+    - name: "time_remaining_hours"
+      type: "float"
+      description: "Hours remaining in the episode (max 72)"
+    # --- Privileged: returned ONLY by /state (UI), never on /reset or /step ---
+    - name: "actual_temperature"
+      type: "float"
+      description: "PRIVILEGED. True node temperature. Returned by /state for the UI; NEVER returned to the agent on /reset or /step."
+    - name: "sensor_lying"
+      type: "boolean"
+      description: "PRIVILEGED. Ground-truth flag for whether the sensor is mis-reporting. Returned by /state for the UI; NEVER returned to the agent on /reset or /step."
+
+action_space:
+  type: "dict"
+  fields:
+    - name: "node"
+      type: "string"
+      description: "Target node: DVS_Barmer, CHC_Balotra, or PHC_Sindhari"
+    - name: "action_type"
+      type: "string"
+      enum: ["check_temperature", "request_fuel", "schedule_outreach", "check_truck_status", "request_emergency", "no_op"]
+      description: "Action to perform"
+    - name: "quantity"
+      type: "integer"
+      description: "Optional quantity for outreach scheduling (vials to deliver)"
+
+reward_range: [-10, 10]
+
+tags:
+  - "language"
+  - "rl"
+  - "vaccine"
+  - "cold-chain"
+  - "healthcare"
+  - "india"
+  - "world-modeling"
+  - "professional-tasks"
+  - "ethical-tension"
+
+difficulty_levels:
+  - "easy"
+  - "medium"
+  - "hard"
+
+max_episode_length: 72

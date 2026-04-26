@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vaccine Cold Chain — Live Monitor</title>
+  <style>
+    /* ------------------------------------------------------------------ */
+    /* Base & reset                                                         */
+    /* ------------------------------------------------------------------ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0d1117;
+      --surface:     #161b22;
+      --surface2:    #1c2230;
+      --border:      #30363d;
+      --text:        #e6edf3;
+      --text-muted:  #8b949e;
+      --accent:      #238636;
+      --accent-blue: #1f6feb;
+      --warn:        #d29922;
+      --danger:      #da3633;
+      --safe:        #3fb950;
+      --node-dvs:    #1f6feb;
+      --node-chc:    #8957e5;
+      --node-phc:    #3fb950;
+      --radius:      8px;
+      --shadow:      0 4px 16px rgba(0,0,0,0.4);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Layout                                                              */
+    /* ------------------------------------------------------------------ */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    header h1 span { color: var(--accent-blue); }
+
+    #status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    #status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: background 0.4s;
+    }
+    #status-dot.live { background: var(--safe); box-shadow: 0 0 6px var(--safe); }
+    #status-dot.error { background: var(--danger); }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      grid-template-rows: auto 1fr;
+      gap: 0;
+      height: calc(100vh - 57px);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Briefing banner                                                      */
+    /* ------------------------------------------------------------------ */
+    #briefing-bar {
+      grid-column: 1 / -1;
+      background: linear-gradient(90deg, #161b22 0%, #1a2033 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    #briefing-bar .label {
+      flex-shrink: 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--accent-blue);
+      margin-top: 2px;
+    }
+
+    #briefing-text {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Left: nodes + meta                                                  */
+    /* ------------------------------------------------------------------ */
+    .left-col {
+      overflow-y: auto;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      border-right: 1px solid var(--border);
+    }
+
+    /* Top meta bar: hour, time remaining, difficulty, ethical tension */
+    #meta-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .meta-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .meta-chip .chip-label {
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      display: block;
+    }
+
+    .meta-chip .chip-val {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .meta-chip.danger { border-color: var(--danger); }
+    .meta-chip.warn   { border-color: var(--warn); }
+
+    /* Node cards */
+    .nodes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .node-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      position: relative;
+      transition: border-color 0.3s;
+    }
+
+    .node-card.alarm-active  { border-color: var(--danger); }
+    .node-card.sensor-lying  { border-color: var(--warn); }
+
+    .node-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .node-name {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .node-badge {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      border-radius: 4px;
+      padding: 2px 7px;
+      border: 1px solid;
+    }
+
+    .node-badge.dvs { color: var(--node-dvs); border-color: var(--node-dvs); }
+    .node-badge.chc { color: var(--node-chc); border-color: var(--node-chc); }
+    .node-badge.phc { color: var(--node-phc); border-color: var(--node-phc); }
+
+    /* ---- KEY UI MOMENT: Sensor lie callout ---- */
+    .temp-block {
+      background: var(--surface2);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      position: relative;
+    }
+
+    .temp-block.lying {
+      background: rgba(210, 153, 34, 0.12);
+      border: 1px solid var(--warn);
+    }
+
+    .sensor-reading-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sensor-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .sensor-value {
+      font-size: 26px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sensor-value.normal { color: var(--safe); }
+    .sensor-value.warn   { color: var(--warn); }
+    .sensor-value.danger { color: var(--danger); }
+
+    /* ⚠ Lie row: amber sensor + actual below */
+    .lie-warning-row {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      margin-top: 4px;
+    }
+
+    .temp-block.lying .lie-warning-row { display: flex; }
+
+    .lie-icon {
+      font-size: 13px;
+    }
+
+    .lie-badge {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--warn);
+      letter-spacing: 0.3px;
+    }
+
+    .actual-temp-row {
+      display: none;
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .temp-block.lying .actual-temp-row { display: block; }
+
+    .actual-temp-val {
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .alarm-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: var(--danger);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 4px;
+      padding: 2px 6px;
+      letter-spacing: 0.5px;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Fuel bar */
+    .fuel-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .fuel-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .fuel-val {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .fuel-bar-track {
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 3px;
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+
+    .fuel-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.6s ease, background 0.3s;
+    }
+
+    /* Vials */
+    .vials-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+    }
+
+    .vial-stat { text-align: center; }
+    .vial-stat .v-num {
+      font-size: 18px;
+      font-weight: 700;
+      display: block;
+    }
+    .vial-stat .v-lbl {
+      color: var(--text-muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .vial-stat.spoiled .v-num { color: var(--danger); }
+    .vial-stat.delivered .v-num { color: var(--safe); }
+
+    /* ------------------------------------------------------------------ */
+    /* Rubric / coverage panel                                             */
+    /* ------------------------------------------------------------------ */
+    #coverage-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+
+    #coverage-panel h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .rubric-row {
+      margin-bottom: 10px;
+    }
+
+    .rubric-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .rubric-name { color: var(--text); }
+    .rubric-score { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+    .rubric-track {
+      height: 5px;
+      background: var(--surface2);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .rubric-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.6s ease;
+    }
+
+    .rubric-total {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .rubric-total-label {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .rubric-total-val {
+      font-size: 20px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Right sidebar                                                        */
+    /* ------------------------------------------------------------------ */
+    .right-col {
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .sidebar-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+
+    .sidebar-card h3 {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    /* Last action box */
+    #last-action-type {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent-blue);
+      margin-bottom: 4px;
+    }
+
+    #last-action-node {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    #last-reasoning {
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.55;
+      background: var(--surface2);
+      border-radius: 5px;
+      padding: 8px 10px;
+      font-style: italic;
+    }
+
+    /* Ethical tension alert */
+    #ethical-banner {
+      display: none;
+      background: rgba(218, 54, 51, 0.12);
+      border: 1px solid var(--danger);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+
+    #ethical-banner.active { display: block; }
+    #ethical-banner strong { color: var(--danger); }
+
+    /* Truck status */
+    #truck-status {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    #truck-status.arrived  { color: var(--safe); }
+    #truck-status.pending  { color: var(--text-muted); }
+
+    /* Event log */
+    #event-log {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    #event-log li {
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--surface2);
+      border-radius: 4px;
+      padding: 5px 8px;
+      line-height: 1.45;
+      border-left: 2px solid var(--border);
+    }
+
+    #event-log li.event-critical { border-left-color: var(--danger); color: #ff7b72; }
+    #event-log li.event-warn     { border-left-color: var(--warn); color: #e3b341; }
+    #event-log li.event-good     { border-left-color: var(--safe); color: #7ee787; }
+    #event-log li.event-lie      { border-left-color: var(--warn); background: rgba(210,153,34,0.08); }
+
+    /* ------------------------------------------------------------------ */
+    /* Loading / empty states                                              */
+    /* ------------------------------------------------------------------ */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(13,17,23,0.92);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent-blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loading-overlay p { color: var(--text-muted); font-size: 13px; }
+
+    /* Done overlay */
+    #done-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(13,17,23,0.7);
+      z-index: 50;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #done-overlay.active { display: flex; }
+
+    .done-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 36px;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .done-box h2 { margin-bottom: 10px; font-size: 20px; }
+    .done-box p  { color: var(--text-muted); margin-bottom: 16px; }
+    .done-box button {
+      background: var(--accent-blue);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 20px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Responsive                                                          */
+    /* ------------------------------------------------------------------ */
+    @media (max-width: 900px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto 1fr auto;
+        height: auto;
+      }
+
+      #briefing-bar { grid-column: 1; }
+      .right-col { border-top: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <p>Connecting to cold chain environment…</p>
+</div>
+
+<!-- Episode done overlay -->
+<div id="done-overlay">
+  <div class="done-box">
+    <h2>Episode Complete</h2>
+    <p id="done-summary">The episode has ended.</p>
+    <button onclick="dismissDone()">Dismiss</button>
+  </div>
+</div>
+
+<!-- Header -->
+<header>
+  <h1>Vaccine Cold Chain — <span>Live Monitor</span></h1>
+  <div id="status-pill">
+    <div id="status-dot"></div>
+    <span id="status-text">Connecting…</span>
+  </div>
+</header>
+
+<!-- Main layout -->
+<div class="main-grid">
+
+  <!-- Briefing banner (spans both columns) -->
+  <div id="briefing-bar">
+    <div class="label">Briefing</div>
+    <div id="briefing-text">Loading district briefing…</div>
+  </div>
+
+  <!-- Left: nodes + rubric -->
+  <div class="left-col">
+
+    <!-- Meta chips row -->
+    <div id="meta-bar">
+      <div class="meta-chip">
+        <span class="chip-label">Hour</span>
+        <span class="chip-val" id="meta-hour">—</span>
+      </div>
+      <div class="meta-chip">
+        <span class="chip-label">Remaining</span>
+        <span class="chip-val" id="meta-remaining">—</span>
+      </div>
+      <div class="meta-chip">
+        <span class="chip-label">Difficulty</span>
+        <span class="chip-val" id="meta-difficulty">—</span>
+      </div>
+      <div class="meta-chip">
+        <span class="chip-label">Coverage</span>
+        <span class="chip-val" id="meta-coverage">—</span>
+      </div>
+    </div>
+
+    <!-- Ethical tension alert (visible in hard mode) -->
+    <div id="ethical-banner">
+      <strong>⚖ Ethical Tension Active</strong> — Triage decision required.<br>
+      Agent must choose between vaccinating <strong>200 children under 5</strong>
+      vs <strong>70 elderly</strong>. Rubric weights children at 0.7, elderly at 0.3.
+    </div>
+
+    <!-- Node cards grid -->
+    <div class="nodes-grid" id="nodes-container">
+      <!-- populated by JS -->
+    </div>
+
+    <!-- Rubric / scoring panel -->
+    <div id="coverage-panel">
+      <h3>Reward Rubric</h3>
+      <div class="rubric-row">
+        <div class="rubric-header">
+          <span class="rubric-name">Coverage</span>
+          <span class="rubric-score" id="rs-coverage">—</span>
+        </div>
+        <div class="rubric-track"><div class="rubric-fill" id="rf-coverage" style="background:#1f6feb;width:0%"></div></div>
+      </div>
+      <div class="rubric-row">
+        <div class="rubric-header">
+          <span class="rubric-name">Temperature Maintenance</span>
+          <span class="rubric-score" id="rs-temp">—</span>
+        </div>
+        <div class="rubric-track"><div class="rubric-fill" id="rf-temp" style="background:#3fb950;width:0%"></div></div>
+      </div>
+      <div class="rubric-row">
+        <div class="rubric-header">
+          <span class="rubric-name">Proactive Info Seeking</span>
+          <span class="rubric-score" id="rs-proactive">—</span>
+        </div>
+        <div class="rubric-track"><div class="rubric-fill" id="rf-proactive" style="background:#8957e5;width:0%"></div></div>
+      </div>
+      <div class="rubric-row">
+        <div class="rubric-header">
+          <span class="rubric-name">Resource Efficiency</span>
+          <span class="rubric-score" id="rs-efficiency">—</span>
+        </div>
+        <div class="rubric-track"><div class="rubric-fill" id="rf-efficiency" style="background:#d29922;width:0%"></div></div>
+      </div>
+      <div class="rubric-total">
+        <span class="rubric-total-label">Weighted Total</span>
+        <span class="rubric-total-val" id="rs-total">—</span>
+      </div>
+    </div>
+
+  </div><!-- /.left-col -->
+
+  <!-- Right sidebar -->
+  <div class="right-col">
+
+    <!-- Truck status -->
+    <div class="sidebar-card">
+      <h3>Vaccine Truck</h3>
+      <div id="truck-status" class="pending">⏳ Awaiting arrival…</div>
+    </div>
+
+    <!-- Last action + reasoning -->
+    <div class="sidebar-card">
+      <h3>Last Agent Action</h3>
+      <div id="last-action-type">—</div>
+      <div id="last-action-node">—</div>
+      <div id="last-reasoning">No reasoning recorded yet.</div>
+    </div>
+
+    <!-- Event log -->
+    <div class="sidebar-card">
+      <h3>Event Log (last 5)</h3>
+      <ul id="event-log">
+        <li>Waiting for events…</li>
+      </ul>
+    </div>
+
+  </div><!-- /.right-col -->
+
+</div><!-- /.main-grid -->
+
+<script>
+  /* ------------------------------------------------------------------ */
+  /* State                                                               */
+  /* ------------------------------------------------------------------ */
+  let firstLoad = true;
+  const POLL_MS = 1500;
+
+  const RUBRIC_COLORS = {
+    coverage: '#1f6feb',
+    temperature_maintenance: '#3fb950',
+    proactive_info_seeking: '#8957e5',
+    resource_efficiency: '#d29922',
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* Node badge helpers                                                  */
+  /* ------------------------------------------------------------------ */
+  function nodeBadgeClass(name) {
+    if (name.startsWith('DVS')) return 'dvs';
+    if (name.startsWith('CHC')) return 'chc';
+    return 'phc';
+  }
+
+  function nodeBadgeLabel(name) {
+    if (name.startsWith('DVS')) return 'DVS';
+    if (name.startsWith('CHC')) return 'CHC';
+    return 'PHC';
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Temperature color                                                   */
+  /* ------------------------------------------------------------------ */
+  function tempClass(temp, lying) {
+    if (lying) return 'warn';
+    if (temp < 2 || temp > 8) return 'danger';
+    return 'normal';
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Fuel bar color                                                      */
+  /* ------------------------------------------------------------------ */
+  function fuelColor(pct) {
+    if (pct < 20) return '#da3633';
+    if (pct < 40) return '#d29922';
+    return '#3fb950';
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Rubric bar color                                                    */
+  /* ------------------------------------------------------------------ */
+  function rubricColor(score) {
+    if (score < 0.33) return '#da3633';
+    if (score < 0.66) return '#d29922';
+    return '#3fb950';
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Build or update a node card                                         */
+  /* ------------------------------------------------------------------ */
+  function renderNodes(nodes) {
+    const container = document.getElementById('nodes-container');
+
+    nodes.forEach(node => {
+      let card = document.getElementById('card-' + node.node_name);
+
+      if (!card) {
+        card = document.createElement('div');
+        card.className = 'node-card';
+        card.id = 'card-' + node.node_name;
+        card.innerHTML = `
+          <div class="node-header">
+            <div class="node-name">${node.node_name.replace('_', ' ')}</div>
+            <div class="node-badge ${nodeBadgeClass(node.node_name)}">${nodeBadgeLabel(node.node_name)}</div>
+          </div>
+          <div class="temp-block" id="temp-${node.node_name}">
+            <div class="sensor-reading-row">
+              <div class="sensor-label">Sensor Reading</div>
+              <div class="sensor-value" id="sv-${node.node_name}">—</div>
+            </div>
+            <div class="lie-warning-row">
+              <span class="lie-icon">⚠</span>
+              <span class="lie-badge">SENSOR LYING — reading is false</span>
+            </div>
+            <div class="actual-temp-row">
+              Actual: <span class="actual-temp-val" id="at-${node.node_name}">—</span>
+            </div>
+            <div class="alarm-badge" id="alarm-${node.node_name}" style="display:none">🚨 ALARM</div>
+          </div>
+          <div class="fuel-row">
+            <span class="fuel-label">Generator Fuel</span>
+            <span class="fuel-val" id="fuel-val-${node.node_name}">—</span>
+          </div>
+          <div class="fuel-bar-track">
+            <div class="fuel-bar-fill" id="fuel-bar-${node.node_name}"></div>
+          </div>
+          <div class="vials-row">
+            <div class="vial-stat">
+              <span class="v-num" id="vials-${node.node_name}">—</span>
+              <span class="v-lbl">Vials</span>
+            </div>
+            <div class="vial-stat spoiled">
+              <span class="v-num" id="spoiled-${node.node_name}">—</span>
+              <span class="v-lbl">Spoiled</span>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      }
+
+      /* Update values */
+      const tempBlock = document.getElementById('temp-' + node.node_name);
+      const svEl = document.getElementById('sv-' + node.node_name);
+      const atEl = document.getElementById('at-' + node.node_name);
+      const alarmEl = document.getElementById('alarm-' + node.node_name);
+      const fuelValEl = document.getElementById('fuel-val-' + node.node_name);
+      const fuelBarEl = document.getElementById('fuel-bar-' + node.node_name);
+      const vialsEl = document.getElementById('vials-' + node.node_name);
+      const spoiledEl = document.getElementById('spoiled-' + node.node_name);
+
+      /* *** Sensor lie callout *** */
+      if (node.sensor_lying) {
+        tempBlock.classList.add('lying');
+        card.classList.add('sensor-lying');
+        card.classList.remove('alarm-active');
+        svEl.textContent = node.sensor_reading.toFixed(1) + '°C';
+        svEl.className = 'sensor-value warn';
+        atEl.textContent = node.actual_temperature.toFixed(1) + '°C';
+      } else {
+        tempBlock.classList.remove('lying');
+        card.classList.remove('sensor-lying');
+        svEl.textContent = node.sensor_reading.toFixed(1) + '°C';
+        svEl.className = 'sensor-value ' + tempClass(node.sensor_reading, false);
+        if (node.temperature_alarm) card.classList.add('alarm-active');
+        else card.classList.remove('alarm-active');
+      }
+
+      alarmEl.style.display = node.temperature_alarm ? 'block' : 'none';
+
+      fuelValEl.textContent = node.generator_fuel_pct.toFixed(0) + '%';
+      fuelBarEl.style.width = node.generator_fuel_pct + '%';
+      fuelBarEl.style.background = fuelColor(node.generator_fuel_pct);
+
+      vialsEl.textContent = node.vials_at_node.toLocaleString();
+      spoiledEl.textContent = node.vials_spoiled.toLocaleString();
+    });
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Update meta chips                                                   */
+  /* ------------------------------------------------------------------ */
+  function updateMeta(state) {
+    document.getElementById('meta-hour').textContent = state.current_hour;
+    document.getElementById('meta-remaining').textContent =
+      state.time_remaining_hours.toFixed(0) + 'h';
+    document.getElementById('meta-difficulty').textContent =
+      state.difficulty.charAt(0).toUpperCase() + state.difficulty.slice(1);
+    document.getElementById('meta-coverage').textContent =
+      (state.coverage * 100).toFixed(0) + '%';
+
+    const ethBanner = document.getElementById('ethical-banner');
+    if (state.ethical_tension_active) ethBanner.classList.add('active');
+    else ethBanner.classList.remove('active');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Update rubric bars                                                  */
+  /* ------------------------------------------------------------------ */
+  function updateRubric(rs) {
+    if (!rs) return;
+    const map = {
+      'rs-coverage': 'rf-coverage',   score: rs.coverage,
+    };
+
+    function setRubric(scoreId, fillId, value) {
+      const pct = ((value || 0) * 100).toFixed(0);
+      const el = document.getElementById(scoreId);
+      const fill = document.getElementById(fillId);
+      if (el) el.textContent = ((value || 0) * 100).toFixed(0) + '%';
+      if (fill) {
+        fill.style.width = pct + '%';
+        fill.style.background = rubricColor(value || 0);
+      }
+    }
+
+    setRubric('rs-coverage',   'rf-coverage',   rs.coverage);
+    setRubric('rs-temp',       'rf-temp',       rs.temperature_maintenance);
+    setRubric('rs-proactive',  'rf-proactive',  rs.proactive_info_seeking);
+    setRubric('rs-efficiency', 'rf-efficiency', rs.resource_efficiency);
+
+    const totalEl = document.getElementById('rs-total');
+    if (totalEl) {
+      const t = rs.total || 0;
+      totalEl.textContent = (t * 100).toFixed(0) + '%';
+      totalEl.style.color = rubricColor(t);
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Update sidebar                                                      */
+  /* ------------------------------------------------------------------ */
+  function updateSidebar(state) {
+    /* Truck */
+    const truckEl = document.getElementById('truck-status');
+    if (state.truck_arrived) {
+      truckEl.textContent = '✅ Vaccine truck arrived';
+      truckEl.className = 'arrived';
+    } else {
+      truckEl.textContent = '⏳ Awaiting truck arrival…';
+      truckEl.className = 'pending';
+    }
+
+    /* Last action */
+    if (state.last_action) {
+      const a = state.last_action;
+      document.getElementById('last-action-type').textContent =
+        (a.action_type || '—').replace(/_/g, ' ').toUpperCase();
+      document.getElementById('last-action-node').textContent =
+        'Node: ' + (a.node || '—');
+    }
+    const reasoning = state.last_reasoning;
+    const reasoningEl = document.getElementById('last-reasoning');
+    reasoningEl.textContent = reasoning || 'No reasoning recorded.';
+
+    /* Event log */
+    const events = (state.events || []).slice(-5).reverse();
+    const logEl = document.getElementById('event-log');
+    logEl.innerHTML = events.length === 0
+      ? '<li>No events yet.</li>'
+      : events.map(ev => {
+          let cls = '';
+          const u = ev.toUpperCase();
+          if (u.includes('FALSE ALARM') || u.includes('FLOOD') || u.includes('FAILURE'))
+            cls = 'event-critical';
+          else if (u.includes('LYING') || u.includes('SENSOR'))
+            cls = 'event-lie';
+          else if (u.includes('OUTREACH') || u.includes('ARRIVED'))
+            cls = 'event-good';
+          else if (u.includes('WASTE') || u.includes('SPOIL') || u.includes('MISS'))
+            cls = 'event-warn';
+          return `<li class="${cls}">${ev}</li>`;
+        }).join('');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Status pill                                                         */
+  /* ------------------------------------------------------------------ */
+  function setStatus(text, state) {
+    document.getElementById('status-text').textContent = text;
+    document.getElementById('status-dot').className = state;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Poll /state                                                         */
+  /* ------------------------------------------------------------------ */
+  async function poll() {
+    try {
+      const res = await fetch('/state');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const state = await res.json();
+
+      if (firstLoad) {
+        document.getElementById('loading-overlay').style.display = 'none';
+        firstLoad = false;
+      }
+
+      setStatus('Live · h' + state.current_hour, 'live');
+      document.getElementById('briefing-text').textContent =
+        state.briefing || 'No briefing available.';
+
+      renderNodes(state.nodes || []);
+      updateMeta(state);
+      updateRubric(state.rubric_scores);
+      updateSidebar(state);
+
+      if (state.done) {
+        const total = ((state.rubric_scores || {}).total || 0) * 100;
+        document.getElementById('done-summary').textContent =
+          `Coverage: ${(state.coverage * 100).toFixed(0)}%  •  ` +
+          `Waste: ${(state.waste * 100).toFixed(0)}%  •  ` +
+          `Score: ${total.toFixed(0)}%`;
+        document.getElementById('done-overlay').classList.add('active');
+      }
+
+    } catch (err) {
+      setStatus('Error — retrying…', 'error');
+      console.error('[poll]', err);
+    }
+  }
+
+  function dismissDone() {
+    document.getElementById('done-overlay').classList.remove('active');
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Boot                                                                */
+  /* ------------------------------------------------------------------ */
+  poll();
+  setInterval(poll, POLL_MS);
+</script>
+</body>
+</html>
