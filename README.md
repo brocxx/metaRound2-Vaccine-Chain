@@ -283,7 +283,7 @@ At 60 episodes, GRPO on Qwen2.5-1.5B (LoRA, T4) showed instability and reward va
 | **Score** | **0 / 4** | **4 / 4** |
 
 Screenshots:
-- Scenario 1 screenshot set: **pending upload** (source files currently missing from local evidence directory; links will be added in the next evidence sync).
+- Scenario 1 recovered screenshot set (raw import): [open folder](https://github.com/brocxx/metaRound2-Vaccine-Chain/tree/evidence-assets/Training_Evidence/Scenario1/Recovered_from_chat)
 
 > **Why this matters.** Both agents see identical structured numbers. The only thing the briefing supplies is *prior reliability information about the sensor itself.* The baseline cannot reason past the alarm; the briefing-enabled agent treats the reading as evidence rather than ground truth. This is exactly the world-modeling gap Theme #3.1 is trying to measure.
 
