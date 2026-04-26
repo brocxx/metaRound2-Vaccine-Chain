@@ -11,10 +11,6 @@ ENV NEXT_PUBLIC_ENV_BASE_URL=$NEXT_PUBLIC_ENV_BASE_URL
 ENV NEXT_PUBLIC_USE_LIVE=$NEXT_PUBLIC_USE_LIVE
 
 COPY frontend/package.json frontend/package-lock.json* ./
-
-# region agent log: shell-only diagnostic, runId=pre-fix-build-debug-v2, hyp=H_F1_F2_F3
-RUN node --version && npm --version && ls -la
-# endregion
 RUN npm install --no-audit --progress=false --loglevel=info
 
 COPY frontend/ ./
@@ -35,11 +31,7 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 COPY requirements.txt .
-
-# region agent log: shell-only diagnostic, runId=pre-fix-build-debug-v2, hyp=H_P1_P2_P3
-RUN python --version && pip --version && cat requirements.txt
-# endregion
-RUN pip install --no-cache-dir --verbose -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY models.py openenv.yaml ./
 COPY server/ ./server/
