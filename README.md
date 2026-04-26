@@ -20,7 +20,7 @@ Every year, last-mile vaccine cold chains in rural India lose millions of doses 
 🎯 **[Live Demo](https://huggingface.co/spaces/brocxx/vaccine-cold-chain-v2)** • 
 📊 **[Reward Curve](Training_Evidence/Reward_Curve/reward_curve.png)** • 
 📓 **[Training Notebook](training/train_grpo.py)** •
-🎥 **[Video Walkthrough — coming soon]**
+**🎥 Video Walkthrough — coming soon**
 
 > 📖 **[Quick Start guide → QUICKSTART.md](QUICKSTART.md)**
 
@@ -243,6 +243,8 @@ We ran an ablation: **same model, same seed, same observation — only the `brie
 ### Reward curve — briefing introduced at episode 20
 
 ![Agent Performance: Without vs With District Briefing](<Training_Evidence/Reward_Curve/reward_curve.png>)
+
+> *Scenario 1 ablation (below) provides the cleanest quantitative signal: 0/4 baseline runs chose the correct action vs 4/4 briefing runs — same model, same seed, same structured observation.*
 
 > *Both curves use the same model, seed, and structured observation. Only the `briefing`
 > field differs. Briefing introduced at episode 20. Full training log:
