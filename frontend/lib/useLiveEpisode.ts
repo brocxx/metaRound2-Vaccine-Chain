@@ -26,7 +26,10 @@ import type { BackendAction } from "./backendTypes";
 import type { BriefingSource, Task, VaccineStateV2 } from "./types";
 
 const POLL_INTERVAL_MS = 3000;
-const AUTOPILOT_INTERVAL_MS = 3000;
+// Autopilot ticks once every AUTOPILOT_INTERVAL_MS. 1.5s is fast enough
+// that a 72-hour episode finishes in ~108s (good for live demos) but
+// slow enough that a human can read the event log between ticks.
+const AUTOPILOT_INTERVAL_MS = 1500;
 
 /** How long to wait after a step before polling (backend needs a tick to update) */
 const POST_STEP_DELAY_MS = 350;
@@ -76,7 +79,6 @@ export function useLiveEpisode({
   const [ready, setReady] = useState(false);
   const [lastReward, setLastReward] = useState<number | null>(null);
 
-  const cancelledRef = useRef(false);
   const stepInFlightRef = useRef(false);            // pause poll while stepping
   const lastFingerprintRef = useRef<string>("");
   const briefingSourceRef = useRef<BriefingSource>(
@@ -85,9 +87,14 @@ export function useLiveEpisode({
   const maxHoursRef = useRef<number>(72);
 
   // ── /reset on (re)mount ─────────────────────────────────────────────
+  // We use a per-effect `cancelled` closure (not a shared ref) so a late
+  // reply from a stale `/reset` cannot resurrect itself once a newer
+  // reset has started. The previous shared-ref approach would briefly
+  // flip back to `false` when the next effect ran, letting the old
+  // response win the race.
   useEffect(() => {
     if (!enabled) return;
-    cancelledRef.current = false;
+    let cancelled = false;
     stepInFlightRef.current = false;
     lastFingerprintRef.current = "";
     setReady(false);
@@ -102,7 +109,7 @@ export function useLiveEpisode({
           user_briefing: customBriefing ?? null,
           seed: seed ?? null,
         });
-        if (cancelledRef.current) return;
+        if (cancelled) return;
         const source: BriefingSource =
           briefingSourceOverride ?? (customBriefing ? "user" : "auto");
         briefingSourceRef.current = source;
@@ -116,7 +123,7 @@ export function useLiveEpisode({
         setObservation(adapted);
         setReady(true);
       } catch (e) {
-        if (!cancelledRef.current) {
+        if (!cancelled) {
           setError(
             e instanceof Error
               ? `backend unreachable: ${e.message}`
@@ -127,7 +134,7 @@ export function useLiveEpisode({
     })();
 
     return () => {
-      cancelledRef.current = true;
+      cancelled = true;
     };
   }, [enabled, task, customBriefing, seed, briefingSourceOverride]);
 
@@ -181,17 +188,31 @@ export function useLiveEpisode({
   );
 
   // ── autopilot loop ──────────────────────────────────────────────────
+  // The interval reads `step` and `done` through refs so the effect
+  // can depend ONLY on [enabled, ready, autopilot]. Previously we
+  // listed `observation?.done` and `step` in the deps, which caused
+  // the interval to be torn down and recreated on every state mutation
+  // — its 1.5s clock kept restarting and the user saw "no ticks".
+  const stepRef = useRef(step);
+  const doneRef = useRef(false);
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
+  useEffect(() => {
+    doneRef.current = !!observation?.done;
+  }, [observation?.done]);
+
   useEffect(() => {
     if (!enabled || !ready || !autopilot) return;
-    if (observation?.done) return;
     const id = window.setInterval(() => {
+      if (doneRef.current) return;
       if (stepInFlightRef.current) return;
-      step({ node: "DVS_Barmer", action_type: "no_op" }, "auto-tick").catch(
-        () => {}
-      );
+      stepRef
+        .current({ node: "DVS_Barmer", action_type: "no_op" }, "auto-tick")
+        .catch(() => {});
     }, AUTOPILOT_INTERVAL_MS);
     return () => window.clearInterval(id);
-  }, [enabled, ready, autopilot, observation?.done, step]);
+  }, [enabled, ready, autopilot]);
 
   return { ready, error, observation, lastReward, step, refresh };
 }

@@ -48,11 +48,26 @@ export function clearEpisodeConfig(): void {
   }
 }
 
-/** Hook variant: returns null on first SSR paint, then hydrates. */
-export function useEpisodeConfig(): EpisodeConfig | null {
+/**
+ * Hook variant: returns the persisted config plus a `loaded` flag.
+ *
+ * Why the flag: on first render `cfg` is null because we can't read
+ * sessionStorage during SSR. Without the flag the dashboard would
+ * eagerly mount `useLiveEpisode` with the fallback task ("hard") and
+ * then re-fire `/reset` a moment later when the real cfg arrived,
+ * which raced two parallel resets and tore down the autopilot
+ * interval before its first tick. Callers should wait for
+ * `loaded === true` before kicking off any episode-bound effects.
+ */
+export function useEpisodeConfig(): {
+  cfg: EpisodeConfig | null;
+  loaded: boolean;
+} {
   const [cfg, setCfg] = useState<EpisodeConfig | null>(null);
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     setCfg(loadEpisodeConfig());
+    setLoaded(true);
   }, []);
-  return cfg;
+  return { cfg, loaded };
 }

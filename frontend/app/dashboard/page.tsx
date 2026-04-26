@@ -25,7 +25,7 @@ export default function DashboardPage() {
 
 function DashboardInner() {
   const dataSource = useDataSource();
-  const cfg = useEpisodeConfig();
+  const { cfg, loaded: cfgLoaded } = useEpisodeConfig();
   const [autopilot, setAutopilot] = useState(true);
 
   const mock = useEpisode(cfg?.task ?? "hard", {
@@ -34,12 +34,16 @@ function DashboardInner() {
     briefingSourceOverride: cfg?.briefingSource ?? undefined,
   });
 
+  // Gate the live hook on cfg hydration. Without this, the first render
+  // posts `/reset` for the fallback task ("hard") and a second `/reset`
+  // fires the moment cfg loads — those two resets race, drop the
+  // autopilot interval, and produce the "stuck at hour 0" symptom.
   const live = useLiveEpisode({
     task: cfg?.task ?? "hard",
     customBriefing:
       cfg?.briefingSource === "user" ? cfg.customBriefing : undefined,
     briefingSourceOverride: cfg?.briefingSource,
-    enabled: dataSource === "live",
+    enabled: dataSource === "live" && cfgLoaded,
     autopilot,
   });
 
