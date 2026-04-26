@@ -25,7 +25,8 @@
  */
 
 import { AnimatePresence, motion } from "framer-motion";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { Component, memo, useEffect, useMemo, useRef, useState } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 
 import {
   EventV2,
@@ -45,6 +46,26 @@ import {
 } from "@/lib/types";
 
 import { RoutesPanel } from "./RoutesPanel";
+
+class RoutesPanelErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(_error: Error, _info: ErrorInfo) {
+    // Keep this panel failure isolated; mission-control map must stay usable.
+  }
+
+  override render(): ReactNode {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
 
 // ─── Layout constants ─────────────────────────────────────────────────────
 
@@ -722,9 +743,11 @@ function TriangleMapInner({ state }: TriangleMapProps) {
         <Legend color="var(--signal-violet)" label="Outreach" />
       </div>
 
-      {/* Static OSM geo overlay — renders nothing when state.routes is empty,
-          so the legacy demo (without geo_config.json) is unchanged. */}
-      <RoutesPanel routes={state.routes} />
+      {/* Static OSM geo overlay — wrapped in a local error boundary so even if
+          this additive panel throws, the core mission-control map stays alive. */}
+      <RoutesPanelErrorBoundary>
+        <RoutesPanel routes={state.routes} />
+      </RoutesPanelErrorBoundary>
     </div>
   );
 }
